@@ -90,6 +90,7 @@ export const useChatStore = defineStore('chat', {
         this.addMessage({
           content: `已连接并分配到模型 ${data.model_id}，对话ID: ${this.currentConversation.id}`,
           isUser: false,
+          end: true,
         })
         this.setLoading(false)
       })
@@ -120,10 +121,30 @@ export const useChatStore = defineStore('chat', {
         console.log('收到新token:', data)
         this.setLoading(false)
         // 这里可以实现流式显示
-        if (this.modelId && data.token && data.token !== '[DONE]') {
-          // 可以累积token或实时显示
-          // 如果上一条是用户消息或者没有消息，则创建一条新消息
-          if (this.messages.length === 0 || this.messages[this.messages.length - 1].isUser) {
+        if (this.modelId && data.token) {
+          if (data.token === '<|...|>') {
+            // 结束这一条，并且加上...
+            this.messages[this.messages.length - 1].content += '...'
+            this.messages[this.messages.length - 1].end = true
+            return;
+          }
+          // TODO:
+          if (data.token === '<|silence|>') {
+            this.messages[this.messages.length - 1].end = true
+            return;
+          }
+          // 如果上一条是用户消息，直到收到<|round_start|>再开启token的接收
+          if (this.messages[this.messages.length - 1].isUser) {
+            if (data.token === '<|round_start|>') {
+              this.messages[this.messages.length - 1].end = true;
+              return;
+            }
+          }
+          // 如果没有消息或上一条消息有结束标识，则创建一条新消息
+          if (
+            this.messages.length === 0 ||
+            this.messages[this.messages.length - 1].end
+          ) {
             this.addMessage({
               content: data.token,
               isUser: false,
@@ -149,6 +170,7 @@ export const useChatStore = defineStore('chat', {
           content: error.message || '连接出现问题，请稍后重试',
           isUser: false,
           isError: true,
+          end: true,
         })
         this.setLoading(false)
       })
@@ -162,6 +184,7 @@ export const useChatStore = defineStore('chat', {
             content: '无法连接到后端服务，请检查服务是否启动',
             isUser: false,
             isError: true,
+            end: true,
           })
         }
       })
@@ -184,6 +207,7 @@ export const useChatStore = defineStore('chat', {
         isUser: message.isUser,
         timestamp: new Date(),
         isError: message.isError || false,
+        end: message.end || false,
       }
 
       this.messages.push(newMessage)
@@ -279,8 +303,6 @@ export const useChatStore = defineStore('chat', {
 
       // 添加用户消息
       let displayContent = content
-      if (files.length > 0) displayContent += ' [包含文件]'
-      if (this.isVideoStreaming) displayContent += ' [含视频流]'
 
       this.addMessage({
         content: displayContent,
@@ -304,6 +326,7 @@ export const useChatStore = defineStore('chat', {
             content: '发送消息失败，请重试',
             isUser: false,
             isError: true,
+            end: true,
           })
           this.setLoading(false)
         }
@@ -312,6 +335,7 @@ export const useChatStore = defineStore('chat', {
           content: '未连接到服务器，请检查连接状态',
           isUser: false,
           isError: true,
+          end: true,
         })
         this.setLoading(false)
       }
@@ -332,6 +356,7 @@ export const useChatStore = defineStore('chat', {
       this.addMessage({
         content: `开始${streamType === 'camera' ? '摄像头' : '屏幕录制'}视频流传输`,
         isUser: false,
+        end: true,
       })
     },
 
@@ -343,6 +368,7 @@ export const useChatStore = defineStore('chat', {
       this.addMessage({
         content: `视频流传输已结束\n持续时间: ${streamStats.duration}\n传输量: ${streamStats.dataTransferred}`,
         isUser: false,
+        end: true,
       })
 
       this.isVideoStreaming = false
