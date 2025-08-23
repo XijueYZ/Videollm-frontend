@@ -1,0 +1,42 @@
+
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "@/components/ui/sidebar"
+import type { SidebarKey } from "@/utils"
+import type { Dispatch, SetStateAction } from "react"
+type Props = {
+  items: SideBarItem[],
+  activeKey: string,
+  setActiveKey: Dispatch<SetStateAction<SidebarKey>>
+}
+const LeftSideBar: React.FC<Props> = ({ items, activeKey, setActiveKey }) => {
+
+  return (
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xl font-bold text-primary my-6 py-4">VideoLLM</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {items.map((item) => (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton asChild
+                      isActive={activeKey === item.key}>
+                      {/* <a > */}
+                      <div className="flex items-center gap-2" onClick={() => setActiveKey(item.key as SidebarKey)}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </div>
+                      {/* </a> */}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+    </SidebarProvider>
+  )
+}
+
+export default LeftSideBar;
