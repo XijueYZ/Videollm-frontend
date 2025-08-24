@@ -12,7 +12,7 @@ const socketUrl = 'ws://localhost:5000';
 
 const ChatView: React.FC<Props> = ({ type }) => {
     // TODO: 连接状态需要从后端获取
-    const [isConnected, setIsConnected] = useState(true)
+    const [isConnected, setIsConnected] = useState(false)
     const [modelId, setModelId] = useState<string | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
     const [loading, setLoading] = useState(false);
@@ -26,12 +26,14 @@ const ChatView: React.FC<Props> = ({ type }) => {
 
     // 开启新对话
     const createNewConversation = () => {
+        const id = uuidv4()
         setCurrentConversation({
-            id: uuidv4(),
+            id: id,
             title: 'AI对话',
             createdAt: new Date().toISOString(),
         })
         setMessages([])
+        return id;
     }
 
     // 消息管理
@@ -69,14 +71,15 @@ const ChatView: React.FC<Props> = ({ type }) => {
         socketRef.current.on('connected', (data) => {
             console.log('✅ 模型分配成功:', data)
             setModelId(data.model_id)
+            let id = currentConversation?.id
 
             // 连接成功后自动创建对话
             if (!currentConversation) {
-                createNewConversation()
+                id = createNewConversation()
             }
 
             addMessage({
-                content: `已连接并分配到模型 ${data.model_id}，对话ID: ${currentConversation?.id}`,
+                content: `已连接并分配到模型 ${data.model_id}，对话ID: ${id}`,
                 isUser: false,
             })
             setLoading(false)
@@ -108,10 +111,12 @@ const ChatView: React.FC<Props> = ({ type }) => {
             console.log('收到新token:', data)
             setLoading(false)
             // 这里可以实现流式显示
+            console.log("modelId", modelId, "data.token", data.token)
             if (modelId && data.token && data.token !== '[DONE]') {
                 // 可以累积token或实时显示
                 // 如果上一条是用户消息或者没有消息，则创建一条新消息
                 if (messages.length === 0 || messages[messages.length - 1].isUser) {
+                    console.log('添加新消息', messages)
                     addMessage({
                         content: data.token,
                         isUser: false,
@@ -119,6 +124,7 @@ const ChatView: React.FC<Props> = ({ type }) => {
                 } else {
                     // 把这条token连接在message最后
                     messages[messages.length - 1].content += data.token
+                    setMessages([...messages])
                 }
             }
         })
@@ -144,7 +150,7 @@ const ChatView: React.FC<Props> = ({ type }) => {
         // 连接错误
         socketRef.current.on('connect_error', (error) => {
             console.error('连接错误:', error)
-            // setIsConnected(false) 
+            setIsConnected(false) 
             if (!messages[messages.length - 1].isError) {
                 addMessage({
                     content: '无法连接到后端服务，请检查服务是否启动',
