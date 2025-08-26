@@ -211,7 +211,6 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                 video: {
                     width: quality.width,
                     height: quality.height,
-                    frameRate: frameRate,
                 },
                 audio: true,
             })
@@ -226,9 +225,6 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     const startScreenStream = async () => {
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: frameRate,
-                },
                 audio: true,
             })
 
