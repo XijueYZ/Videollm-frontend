@@ -1,4 +1,4 @@
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 import type { SidebarKey } from "@/utils"
 import type { Dispatch, SetStateAction } from "react"
 type Props = {
@@ -7,7 +7,6 @@ type Props = {
   setActiveKey: Dispatch<SetStateAction<SidebarKey>>
 }
 const LeftSideBar: React.FC<Props> = ({ items, activeKey, setActiveKey }) => {
-
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>

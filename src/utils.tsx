@@ -1,3 +1,4 @@
+import { Home, MessageCircle } from "lucide-react";
 import { createContext, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { Socket } from "socket.io-client";
 
@@ -10,6 +11,19 @@ export enum VideoStreamType {
     Camera = 'camera',
     Screen = 'screen'
 }
+
+export const defaultItems: SideBarItem[] = [
+    {
+        label: 'Stream',
+        key: SidebarKey.Stream,
+        icon: Home
+    },
+    {
+        label: 'Chat',
+        key: SidebarKey.Chat,
+        icon: MessageCircle
+    }
+]
 
 export const ChatContext = createContext<{
     socketRef: RefObject<Socket | null>;
