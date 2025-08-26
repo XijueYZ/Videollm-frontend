@@ -20,7 +20,7 @@ const defaultItems: SideBarItem[] = [
 ]
 
 function App() {
-  const [activeKey, setActiveKey] = useState(SidebarKey.Stream)
+  const [activeKey, setActiveKey] = useState(SidebarKey.Chat)
 
   return <div>
     <SidebarProvider>
