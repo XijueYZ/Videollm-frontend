@@ -9,7 +9,8 @@ export enum SidebarKey {
 
 export enum VideoStreamType {
     Camera = 'camera',
-    Screen = 'screen'
+    Screen = 'screen',
+    File = 'file'
 }
 
 export const defaultItems: SideBarItem[] = [
@@ -48,3 +49,9 @@ export const ChatContext = createContext<{
     videoStreamType: null,
     setVideoStreamType: () => { },
 });
+
+export const qualityConfig = {
+    '480p': { width: 854, height: 480 },
+    '720p': { width: 1280, height: 720 },
+    '1080p': { width: 1920, height: 1080 },
+}

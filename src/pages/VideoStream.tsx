@@ -1,12 +1,10 @@
 import React, { useRef, useState, useEffect, useContext, useCallback } from 'react'
-import { Camera, Monitor, Square, Settings, Video } from 'lucide-react'
+import { Camera, Monitor, Square, Settings, Video, Upload } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { ChatContext, VideoStreamType } from '@/utils'
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarProvider } from '../components/ui/sidebar'
+import { ChatContext, qualityConfig, VideoStreamType } from '@/utils'
 
 interface VideoStreamProps {
     className?: string
@@ -15,10 +13,14 @@ interface VideoStreamProps {
 const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     const { socketRef, isVideoStreaming, setIsVideoStreaming, addMessage } = useContext(ChatContext)
 
+    const isVideoStreamingRef = useRef(isVideoStreaming)
+    const fileInputRef = useRef<HTMLInputElement>(null)
+
     const videoRef = useRef<HTMLVideoElement>(null)
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
     const currentStreamRef = useRef<MediaStream | null>(null)
+    const currentVideoFileRef = useRef<string | null>(null)
     const durationTimerRef = useRef<NodeJS.Timeout | null>(null)
     const rateTimerRef = useRef<NodeJS.Timeout | null>(null)
     const captureTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -33,11 +35,9 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     const [currentFrameRate, setCurrentFrameRate] = useState<string>('--')
     const [lastDataSize, setLastDataSize] = useState<number>(0)
 
-    const qualityConfig = {
-        '480p': { width: 854, height: 480 },
-        '720p': { width: 1280, height: 720 },
-        '1080p': { width: 1920, height: 1080 },
-    }
+    useEffect(() => {
+        isVideoStreamingRef.current = isVideoStreaming
+    }, [isVideoStreaming])
 
     const formatDuration = useCallback((seconds: number): string => {
         const hours = Math.floor(seconds / 3600)
@@ -89,7 +89,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
         }
 
         const video = videoRef.current
-        if (!video) return
+        if (!video) {
+            console.error('捕捉不到视频实例');
+            return
+        }
 
         // 创建canvas（只创建一次）
         if (!canvasRef.current) {
@@ -105,7 +108,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
         let isCapturing = false
 
         const captureFrame = () => {
-            if (!isVideoStreaming || !video.videoWidth || !video.videoHeight || isCapturing) return
+            console.log('captureFrame', isVideoStreamingRef.current, video.videoWidth, video.videoHeight, isCapturing)
+            if (!isVideoStreamingRef.current || !video.videoWidth || !video.videoHeight || isCapturing) return
+
+            console.log('捕获中')
 
             isCapturing = true
 
@@ -121,14 +127,22 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                 canvas.toBlob(
                     (blob) => {
                         isCapturing = false
-                        if (blob && socketRef.current && isVideoStreaming) {
-                            // 发送视频帧到后端
-                            socketRef.current.emit('video_frame', {
-                                frame: blob,
-                                timestamp: Date.now(),
-                                frameRate: frameRate,
-                                quality: videoQuality
-                            })
+                        if (blob && socketRef.current && isVideoStreamingRef.current) {
+                            console.log('send video frame')
+                            try {
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                    const base64data = reader.result
+                                    socketRef.current?.emit('send_image', {
+                                        image_data: base64data,
+                                        is_video_frame: true,
+                                        frame_timestamp: Date.now(),
+                                    })
+                                }
+                                reader.readAsDataURL(blob)
+                            } catch (error) {
+                                console.error('发送视频帧失败:', error)
+                            }
 
                             dataCount += blob.size
                             setDataTransferred(`${(dataCount / 1024 / 1024).toFixed(2)} MB`)
@@ -143,7 +157,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
             }
 
             // 使用setTimeout而不是递归调用，避免调用栈问题
-            if (isVideoStreaming) {
+            if (isVideoStreamingRef.current) {
                 captureTimerRef.current = setTimeout(captureFrame, 1000 / frameRate)
             }
         }
@@ -163,8 +177,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     // 开始视频流
     const startVideoStream = (streamType: VideoStreamType) => {
         // 添加视频流开始消息
+        const typeText = streamType === VideoStreamType.Camera ? '摄像头' : 
+                        streamType === VideoStreamType.Screen ? '屏幕录制' : '视频文件'
         addMessage({
-            content: `开始${streamType === VideoStreamType.Camera ? '摄像头' : '屏幕录制'}视频流传输`,
+            content: `开始${typeText}视频流传输`,
             isUser: false,
             end: true,
         })
@@ -194,6 +210,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
 
         // 设置视频流状态
         setIsVideoStreaming(true)
+        isVideoStreamingRef.current = true
 
         // 启动定时器和数据传输
         startTimers()
@@ -203,6 +220,68 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
         stream.getVideoTracks()[0].onended = () => {
             stopStream()
         }
+    }
+
+    const setupVideoFile = (fileUrl: string) => {
+        currentVideoFileRef.current = fileUrl
+        if (videoRef.current) {
+            videoRef.current.srcObject = null
+            videoRef.current.src = fileUrl
+        }
+
+        // 记录开始时间
+        const now = new Date()
+        setStartTime(now.toLocaleTimeString())
+        setDuration(0)
+        setLastDataSize(0)
+
+        startVideoStream(VideoStreamType.File)
+
+        // 设置视频流状态
+        setIsVideoStreaming(true)
+        isVideoStreamingRef.current = true
+
+        // 启动定时器和数据传输
+        startTimers()
+
+        // 等待视频元数据加载完成后开始数据传输和更新分辨率信息
+        const video = videoRef.current
+        if (video) {
+            const handleLoadedMetadata = () => {
+                setResolution(`${video.videoWidth}x${video.videoHeight}`)
+                setCurrentFrameRate(frameRate.toString())
+                startDataTransmission()
+            }
+
+            if (video.readyState >= 1) { // HAVE_METADATA
+                handleLoadedMetadata()
+            } else {
+                video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true })
+            }
+
+            // 监听视频结束
+            video.addEventListener('ended', () => {
+                stopStream()
+            })
+        }
+    }
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (file && file.type.startsWith('video/')) {
+            const fileUrl = URL.createObjectURL(file)
+            setupVideoFile(fileUrl)
+        } else {
+            alert('请选择有效的视频文件')
+        }
+        // 清空input值，以便重复选择同一个文件
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
+    }
+
+    const triggerFileUpload = () => {
+        fileInputRef.current?.click()
     }
 
     const startCameraStream = async () => {
@@ -244,6 +323,14 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
 
         if (videoRef.current) {
             videoRef.current.srcObject = null
+            videoRef.current.src = ''
+            videoRef.current.load() // 重置video元素
+        }
+
+        // 清理视频文件URL
+        if (currentVideoFileRef.current) {
+            URL.revokeObjectURL(currentVideoFileRef.current)
+            currentVideoFileRef.current = null
         }
 
         // 清理canvas资源
@@ -412,6 +499,16 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
 
                         <Button
                             variant="outline"
+                            onClick={triggerFileUpload}
+                            disabled={isVideoStreaming}
+                            className="w-full flex items-center"
+                        >
+                            <Upload className="h-4 w-4" />
+                            上传视频文件
+                        </Button>
+
+                        <Button
+                            variant="outline"
                             onClick={stopStream}
                             disabled={!isVideoStreaming}
                             className="w-full flex items-center gap-2 border-red-200 hover:bg-red-50 hover:text-red-600"
@@ -475,6 +572,13 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                 </Card>
             </div>
         </div>
+        <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept="video/*"
+            style={{ display: 'none' }}
+        />
     </div>
     )
 }
