@@ -9,8 +9,20 @@ import { Badge } from "./components/ui/badge"
 import { Wifi, WifiOff } from "lucide-react"
 import { Separator } from "./components/ui/separator"
 import LeftSideBar from "./pages/Sidebar"
+import './App.css'
 
-const socketUrl = 'ws://localhost:5000';
+// TODO: 使用当前域名
+const socketUrl = 'ws://localhost:5000' // 空字符串会使用当前域名
+// 获得当前url的pathname
+const pathname = window.location.pathname
+console.log('当前url的pathname:', pathname)
+// 去掉最后两个/之间的内容
+
+const path = pathname.split('/').slice(0, -2).join('/')
+console.log('当前url的path:', path)
+// 拼接socketUrl
+// TODO: const socketPath = path + '/5000/socket.io'
+const socketPath = '/';
 
 const App: React.FC = () => {
   const [activeKey, setActiveKey] = useState(SidebarKey.Stream)
@@ -76,13 +88,12 @@ const App: React.FC = () => {
   // 消息管理
   const addMessage = (message: Partial<Message>) => {
     const newMessage = {
+      ...message,
       id: uuidv4(),
       content: message.content,
-      isUser: message.isUser,
       timestamp: Date.now(),
       isError: message.isError || false,
     } as Message
-
     setMessages(prev => [...prev, newMessage])
   }
 
@@ -91,6 +102,7 @@ const App: React.FC = () => {
       socketRef.current.disconnect()
     }
     socketRef.current = io(socketUrl, {
+      // path: socketPath,
       transports: ['websocket', 'polling'], // 添加备选传输方式
       timeout: 10000,
       forceNew: true,
@@ -99,8 +111,11 @@ const App: React.FC = () => {
 
     // 连接成功
     socketRef.current.on('connect', () => {
-      console.log('WebSocket 连接成功')
+      console.log('WebSocket 连接成功', socketRef.current)
       setIsConnected(true)
+      socketRef.current?.emit('request_model', {
+        activeKey: activeKey,
+      })
     })
 
     // 模型分配中
@@ -152,11 +167,6 @@ const App: React.FC = () => {
       if (!currentConversation) {
         id = createNewConversation()
       }
-
-      addMessage({
-        content: `已连接并分配到模型 ${data.model_id}，对话ID: ${id}`,
-        isUser: false,
-      })
       setLoading(false)
     })
 
@@ -205,15 +215,16 @@ const App: React.FC = () => {
           })))
           return;
         }
+        console.log('messagesRef.current:', messagesRef.current)
         // 如果上一条是用户消息，直到收到<|round_start|>再开启token的接收
-        if (messagesRef.current[messagesRef.current.length - 1].isUser) {
-          if (data.token === '<|round_start|>') {
+        if (messagesRef.current[messagesRef.current.length - 1].isUser && !messagesRef.current[messagesRef.current.length - 1].end) {
+          // if (data.token === '<|round_start|>') {
             setMessages(prev => prev.map((message, index) => ({
               ...message,
               end: index === prev.length - 1 ? true : false,
             })))
             return;
-          }
+          // }
           return;
         }
         // 如果没有消息或上一条消息有结束标识，则创建一条新消息
@@ -230,7 +241,6 @@ const App: React.FC = () => {
           setMessages(prev => prev.map((message, index) => ({
             ...message,
             content: index === prev.length - 1 ? message.content + data.token : message.content,
-            isUser: false,
           })))
         }
       }
@@ -328,34 +338,36 @@ const App: React.FC = () => {
   }
 
   // 占满除了SideBar的区域
-  return <div className="h-screen w-screen">
+  return <div className="h-screen w-full">
     <SidebarProvider>
       <LeftSideBar items={defaultItems} activeKey={activeKey} setActiveKey={setActiveKey} />
-      <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, loading, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
+      <div className="flex-1 flex flex-col min-w-0">
+        <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, loading, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
 
-        <div className="h-screen w-full pt-10 pl-4 pr-4 pb-5">
-          <div className="flex flex-row items-center justify-between">
-            <SidebarTrigger style={{ backgroundColor: 'transparent' }} />
-            <div className="font-bold">离线视频理解</div>
-            <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
-              {isConnected ? (
-                <>
-                  <Wifi className="h-4 w-4 mr-2" />
-                  已连接到服务器
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-4 w-4 mr-2" />
-                  连接中...
-                </>
-              )}
-            </Badge>
+          <div className="h-full w-full pt-2 pl-4 pr-4 pb-0 flex flex-col" style={{ height: '100vh' }}>
+            <div className="flex flex-row items-center justify-between flex-0">
+              <SidebarTrigger style={{ backgroundColor: 'transparent' }} />
+              <div className="font-bold">离线视频理解</div>
+              <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
+                {isConnected ? (
+                  <>
+                    <Wifi className="h-4 w-4 mr-2" />
+                    已连接到服务器
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-4 w-4 mr-2" />
+                    连接中...
+                  </>
+                )}
+              </Badge>
+            </div>
+            <Separator />
+            {activeKey === SidebarKey.Chat && <Chat />}
+            {activeKey === SidebarKey.Stream && <Stream />}
           </div>
-          <Separator />
-          {activeKey === SidebarKey.Chat && <Chat />}
-          {activeKey === SidebarKey.Stream && <Stream />}
-        </div>
-      </ChatContext.Provider>
+        </ChatContext.Provider>
+      </div>
     </SidebarProvider>
   </div>
 }

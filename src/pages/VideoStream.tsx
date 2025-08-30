@@ -177,8 +177,8 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     // 开始视频流
     const startVideoStream = (streamType: VideoStreamType) => {
         // 添加视频流开始消息
-        const typeText = streamType === VideoStreamType.Camera ? '摄像头' : 
-                        streamType === VideoStreamType.Screen ? '屏幕录制' : '视频文件'
+        const typeText = streamType === VideoStreamType.Camera ? '摄像头' :
+            streamType === VideoStreamType.Screen ? '屏幕录制' : '视频文件'
         addMessage({
             content: `开始${typeText}视频流传输`,
             isUser: false,
@@ -399,70 +399,48 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                         </div>
                     )}
 
-                    {/* 视频底部信息条
-                                            {isVideoStreaming && (
-                                                <div className="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm text-white p-2">
-                                                    <div className="flex justify-between text-xs">
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">开始时间</span>
-                                                            <span className="font-medium">{startTime}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">持续时间</span>
-                                                            <span className="font-medium">{formatDuration(duration)}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">分辨率</span>
-                                                            <span className="font-medium">{resolution}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">帧率</span>
-                                                            <span className="font-medium">{currentFrameRate} fps</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">传输量</span>
-                                                            <span className="font-medium">{dataTransferred}</span>
-                                                        </div>
-                                                        <div className="flex flex-col items-center min-w-0">
-                                                            <span className="text-gray-300 text-[10px]">速率</span>
-                                                            <span className="font-medium">{transmissionRate}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )} */}
+                    {/* 视频底部信息条 */}
+                    {isVideoStreaming && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-white p-1">
+                            <div className="flex justify-between text-[10px]">
+                                <div className="flex flex-col items-center min-w-0">
+                                    <span className="text-gray-300 text-[8px]">分辨率</span>
+                                    <span className="font-medium">{resolution}</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-0">
+                                    <span className="text-gray-300 text-[8px]">帧率</span>
+                                    <span className="font-medium">{currentFrameRate} fps</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-0">
+                                    <span className="text-gray-300 text-[8px]">传输量</span>
+                                    <span className="font-medium">{dataTransferred}</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-0">
+                                    <span className="text-gray-300 text-[8px]">速率</span>
+                                    <span className="font-medium">{transmissionRate}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
+
             {/* 视频底部信息条 */}
             {isVideoStreaming && (
                 <div >
-                    <div className="flex flex-col  justify-between text-xs">
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">开始时间</span>
+                    <div className="flex flex-col justify-between text-xs">
+                        <div className="flex flex-row items-center justify-between min-w-0">
+                            <span className="text-gray-400 text-sm">开始时间</span>
                             <span className="font-medium">{startTime}</span>
                         </div>
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">持续时间</span>
+                        <div className="flex flex-row items-center justify-between min-w-0">
+                            <span className="text-gray-400 text-sm">持续时间</span>
                             <span className="font-medium">{formatDuration(duration)}</span>
-                        </div>
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">分辨率</span>
-                            <span className="font-medium">{resolution}</span>
-                        </div>
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">帧率</span>
-                            <span className="font-medium">{currentFrameRate} fps</span>
-                        </div>
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">传输量</span>
-                            <span className="font-medium">{dataTransferred}</span>
-                        </div>
-                        <div className="flex flex-row items-center min-w-0">
-                            <span className="text-gray-300 text-[10px]">速率</span>
-                            <span className="font-medium">{transmissionRate}</span>
                         </div>
                     </div>
                 </div>
             )}
+
 
             {/* 右侧：控制面板 */}
             <div className="w-72 flex flex-col gap-4">

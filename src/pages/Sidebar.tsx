@@ -8,8 +8,8 @@ type Props = {
 }
 const LeftSideBar: React.FC<Props> = ({ items, activeKey, setActiveKey }) => {
   return (
-    <Sidebar collapsible="icon">
-      <SidebarContent>
+    <Sidebar collapsible="icon"  className="flex-shrink-0" >
+      <SidebarContent className="w-full flex-1">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xl font-bold text-primary my-6 py-4">VideoLLM</SidebarGroupLabel>
           <SidebarGroupContent>

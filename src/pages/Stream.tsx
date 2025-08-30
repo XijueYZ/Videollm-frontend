@@ -34,7 +34,7 @@ const Stream = () => {
         }
     }
     return (
-        <div className="flex flex-row h-full">
+        <div className="flex flex-row h-full flex-1"  style={{ height: 'calc(100% - 29px)'}}>
             <div className="flex flex-col h-full overflow-hidden bg-background flex-1">
                 {/* <VideoStream /> */}
                 {/* 消息区域 */}
@@ -75,7 +75,7 @@ const Stream = () => {
                                                 : 'bg-muted' + ' p-2 max-w-[100%] text-left'
                                         }>
                                             <CardContent className="p-0">
-                                                <div className="whitespace-pre-wrap break-words text-sm">
+                                                <div className="whitespace-pre-wrap break-all text-sm">
                                                     {message.content}
                                                 </div>
                                             </CardContent>
@@ -131,7 +131,7 @@ const Stream = () => {
                     </div>
                 </div>
             </div>
-            <VideoStream className='w-80 flex-shrink-0 flex-grow-0 flex-basis-80 m-4' />
+            <VideoStream className='w-80 flex-shrink-0 flex-grow-0 flex-basis-80 m-2' />
         </div>
     )
 }

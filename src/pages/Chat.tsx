@@ -77,7 +77,7 @@ const Chat = () => {
     }
 
     return (
-        <div className="flex flex-col h-full overflow-hidden bg-background">
+        <div className="flex flex-col h-full overflow-hidden bg-background flex-1" style={{ height: 'calc(100% - 29px)'}}>
 
             {/* 消息区域 */}
             <div className="flex-1 overflow-y-auto p-4">
@@ -117,7 +117,7 @@ const Chat = () => {
                                             : 'bg-muted' + ' p-2 max-w-[100%] text-left'
                                     }>
                                         <CardContent className="p-0">
-                                            <div className="whitespace-pre-wrap break-words text-sm">
+                                            <div className="whitespace-pre-wrap break-all text-sm">
                                                 {message.content}
                                             </div>
                                         </CardContent>

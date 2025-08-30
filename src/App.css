@@ -1,6 +1,13 @@
 #root {
   width: 100vw;
   text-align: center;
+  height: 100vh;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
 }
 
 .logo {
