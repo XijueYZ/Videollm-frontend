@@ -53,6 +53,14 @@ const App: React.FC = () => {
     }
   }, [])
 
+  useEffect(() => {
+    if (socketRef.current) {
+      socketRef.current.emit('request_model', {
+        activeKey: activeKey,
+      })
+    }
+  }, [activeKey])
+
   // 开启新对话
   const createNewConversation = () => {
     const id = uuidv4()
@@ -94,6 +102,44 @@ const App: React.FC = () => {
       console.log('WebSocket 连接成功')
       setIsConnected(true)
     })
+
+    // 模型分配中
+    socketRef.current.on('model_assigning', (data) => {
+      console.log('⏳ 模型分配中:', data)
+      setLoading(true)
+      addMessage({
+        content: data.message,
+        isUser: false,
+      })
+    })
+
+    // 模型分配成功
+    socketRef.current.on('model_assigned', (data) => {
+      console.log('✅ 模型分配成功:', data)
+      setModelId(data.model_id)
+      setLoading(false)
+
+      if (!currentConversation) {
+        createNewConversation()
+      }
+
+      addMessage({
+        content: `模型 ${data.model_id} 分配成功！`,
+        isUser: false,
+      })
+    })
+
+    // 模型分配失败
+    socketRef.current.on('model_assign_failed', (data) => {
+      console.log('❌ 模型分配失败:', data)
+      setLoading(false)
+      addMessage({
+        content: data.message,
+        isUser: false,
+        isError: true,
+      })
+    })
+
 
     // 连接确认，获取分配的模型ID
     // 在 initSocket() 方法中的 'connected' 事件处理器里修改：
@@ -147,6 +193,7 @@ const App: React.FC = () => {
             ...message,
             content: index === prev.length - 1 ? message.content + '...' : message.content,
             end: index === prev.length - 1 ? true : false,
+            isUser: false,
           })))
           return;
         }
@@ -167,6 +214,7 @@ const App: React.FC = () => {
             })))
             return;
           }
+          return;
         }
         // 如果没有消息或上一条消息有结束标识，则创建一条新消息
         if (
@@ -182,6 +230,7 @@ const App: React.FC = () => {
           setMessages(prev => prev.map((message, index) => ({
             ...message,
             content: index === prev.length - 1 ? message.content + data.token : message.content,
+            isUser: false,
           })))
         }
       }
@@ -209,7 +258,7 @@ const App: React.FC = () => {
     socketRef.current.on('connect_error', (error) => {
       console.error('连接错误:', error)
       setIsConnected(false)
-      if (!messagesRef.current[messagesRef.current.length - 1].isError) {
+      if (!messagesRef.current?.length || !messagesRef.current[messagesRef.current.length - 1].isError) {
         addMessage({
           content: '无法连接到后端服务，请检查服务是否启动',
           isUser: false,
