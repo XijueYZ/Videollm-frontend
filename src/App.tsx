@@ -10,9 +10,10 @@ import { Wifi, WifiOff } from "lucide-react"
 import { Separator } from "./components/ui/separator"
 import LeftSideBar from "./pages/Sidebar"
 import './App.css'
+import useWebSocketData, { webSocketStore } from "./WebSocketStore"
 
 // TODO: 使用当前域名
-const socketUrl = 'ws://localhost:5000' // 空字符串会使用当前域名
+const socketUrl = '/' // 空字符串会使用当前域名
 // 获得当前url的pathname
 const pathname = window.location.pathname
 console.log('当前url的pathname:', pathname)
@@ -21,27 +22,21 @@ console.log('当前url的pathname:', pathname)
 const path = pathname.split('/').slice(0, -2).join('/')
 console.log('当前url的path:', path)
 // 拼接socketUrl
-// TODO: const socketPath = path + '/5000/socket.io'
-const socketPath = '/';
+const socketPath = path + '/5000/socket.io'
+// const socketPath = '/';
 
 const App: React.FC = () => {
   const [activeKey, setActiveKey] = useState(SidebarKey.Stream)
   const [isConnected, setIsConnected] = useState(false)
   const [modelId, setModelId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
   const [videoStreamType, setVideoStreamType] = useState<string | null>(null);
 
-  const messagesRef = useRef(messages)
+  const messages = useWebSocketData()
   const modelIdRef = useRef(modelId)
   const socketRef = useRef<Socket | null>(null)
-
-  // 更新 ref 值
-  useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
 
   useEffect(() => {
     modelIdRef.current = modelId
@@ -49,7 +44,7 @@ const App: React.FC = () => {
 
   // 切换页面时，清空消息
   useEffect(() => {
-    setMessages([])
+    webSocketStore.clearMessages();
     setCurrentConversation(null)
     setIsVideoStreaming(false)
     setVideoStreamType(null)
@@ -66,7 +61,7 @@ const App: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (socketRef.current) {
+    if (socketRef.current && activeKey) {
       socketRef.current.emit('request_model', {
         activeKey: activeKey,
       })
@@ -81,7 +76,7 @@ const App: React.FC = () => {
       title: 'AI对话',
       createdAt: new Date().toISOString(),
     })
-    setMessages([])
+    webSocketStore.clearMessages();
     return id;
   }
 
@@ -94,7 +89,7 @@ const App: React.FC = () => {
       timestamp: Date.now(),
       isError: message.isError || false,
     } as Message
-    setMessages(prev => [...prev, newMessage])
+    webSocketStore.addMessage(newMessage)
   }
 
   const initSocket = () => {
@@ -102,7 +97,7 @@ const App: React.FC = () => {
       socketRef.current.disconnect()
     }
     socketRef.current = io(socketUrl, {
-      // path: socketPath,
+      path: socketPath,
       transports: ['websocket', 'polling'], // 添加备选传输方式
       timeout: 10000,
       forceNew: true,
@@ -191,6 +186,7 @@ const App: React.FC = () => {
       setLoading(false)
     })
 
+    console.log('messages:', messages)
     // 流式token响应（如果后端支持）
     socketRef.current.on('new_token', (data) => {
       console.log('收到新token:', data)
@@ -199,38 +195,45 @@ const App: React.FC = () => {
       if (modelIdRef.current && data.token) {
         if (data.token === '<|...|>') {
           // 结束这一条，并且加上...
-          setMessages(prev => prev.map((message, index) => ({
-            ...message,
-            content: index === prev.length - 1 ? message.content + '...' : message.content,
-            end: index === prev.length - 1 ? true : false,
-            isUser: false,
-          })))
+          webSocketStore.updateMessages((messages) => 
+            messages.map((message, index) => ({
+              ...message,
+              content: index === messages.length - 1 ? message.content + '...' : message.content,
+              end: index === messages.length - 1 ? true : false,
+              isUser: false,
+            }))
+          )
           return;
         }
         if (data.token === '<|silence|>') {
           // 给上一条消息加上结束标识
-          setMessages(prev => prev.map((message, index) => ({
-            ...message,
-            end: index === prev.length - 1 ? true : false,
-          })))
+          webSocketStore.updateMessages((messages) => 
+            messages.map((message, index) => ({
+              ...message,
+              end: index === messages.length - 1 ? true : false,
+            }))
+          )
           return;
         }
-        console.log('messagesRef.current:', messagesRef.current)
+        const currentMessages = webSocketStore.getSnapshot()
+        console.log('当前messages:', currentMessages)
         // 如果上一条是用户消息，直到收到<|round_start|>再开启token的接收
-        if (messagesRef.current[messagesRef.current.length - 1].isUser && !messagesRef.current[messagesRef.current.length - 1].end) {
-          // if (data.token === '<|round_start|>') {
-            setMessages(prev => prev.map((message, index) => ({
-              ...message,
-              end: index === prev.length - 1 ? true : false,
-            })))
+        if (currentMessages.length > 0 && currentMessages[currentMessages.length - 1].isUser && !currentMessages[currentMessages.length - 1].end) {
+          if (data.token === '<|round_start|>') {
+            webSocketStore.updateMessages((messages) => 
+              messages.map((message, index) => ({
+                ...message,
+                end: index === messages.length - 1 ? true : false,
+              }))
+            )
             return;
-          // }
+          }
           return;
         }
         // 如果没有消息或上一条消息有结束标识，则创建一条新消息
         if (
-          messagesRef.current.length === 0 ||
-          messagesRef.current[messagesRef.current.length - 1].end
+          currentMessages.length === 0 ||
+          currentMessages[currentMessages.length - 1].end
         ) {
           addMessage({
             content: data.token,
@@ -238,10 +241,12 @@ const App: React.FC = () => {
           })
         } else {
           // 把这条token连接在message最后
-          setMessages(prev => prev.map((message, index) => ({
-            ...message,
-            content: index === prev.length - 1 ? message.content + data.token : message.content,
-          })))
+          webSocketStore.updateMessages((messages) => 
+            messages.map((message, index) => ({
+              ...message,
+              content: index === messages.length - 1 ? message.content + data.token : message.content,
+            }))
+          )
         }
       }
     })
@@ -268,7 +273,8 @@ const App: React.FC = () => {
     socketRef.current.on('connect_error', (error) => {
       console.error('连接错误:', error)
       setIsConnected(false)
-      if (!messagesRef.current?.length || !messagesRef.current[messagesRef.current.length - 1].isError) {
+      const currentMessages = webSocketStore.getSnapshot()
+      if (!currentMessages?.length || !currentMessages[currentMessages.length - 1].isError) {
         addMessage({
           content: '无法连接到后端服务，请检查服务是否启动',
           isUser: false,
