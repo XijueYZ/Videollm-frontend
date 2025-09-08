@@ -11,7 +11,7 @@ const LeftSideBar: React.FC<Props> = ({ items, activeKey, setActiveKey }) => {
     <Sidebar collapsible="icon"  className="flex-shrink-0" >
       <SidebarContent className="w-full flex-1">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xl font-bold text-primary my-6 py-4">VideoLLM</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-xl font-bold text-primary my-6 py-4">MOSS-Video</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (

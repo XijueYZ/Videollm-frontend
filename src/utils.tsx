@@ -15,14 +15,14 @@ export enum VideoStreamType {
 
 export const defaultItems: SideBarItem[] = [
     {
-        label: 'Stream',
-        key: SidebarKey.Stream,
-        icon: Home
-    },
-    {
         label: 'Chat',
         key: SidebarKey.Chat,
         icon: MessageCircle
+    },
+    {
+        label: 'Stream',
+        key: SidebarKey.Stream,
+        icon: Home
     }
 ]
 

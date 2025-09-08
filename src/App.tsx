@@ -26,11 +26,10 @@ const socketPath = path + '/5000/socket.io'
 // const socketPath = '/';
 
 const App: React.FC = () => {
-  const [activeKey, setActiveKey] = useState(SidebarKey.Stream)
+  const [activeKey, setActiveKey] = useState(SidebarKey.Chat)
   const [isConnected, setIsConnected] = useState(false)
   const [modelId, setModelId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false);
-  const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
   const [videoStreamType, setVideoStreamType] = useState<string | null>(null);
 
@@ -45,7 +44,6 @@ const App: React.FC = () => {
   // 切换页面时，清空消息
   useEffect(() => {
     webSocketStore.clearMessages();
-    setCurrentConversation(null)
     setIsVideoStreaming(false)
     setVideoStreamType(null)
   }, [activeKey])
@@ -67,18 +65,6 @@ const App: React.FC = () => {
       })
     }
   }, [activeKey])
-
-  // 开启新对话
-  const createNewConversation = () => {
-    const id = uuidv4()
-    setCurrentConversation({
-      id: id,
-      title: 'AI对话',
-      createdAt: new Date().toISOString(),
-    })
-    webSocketStore.clearMessages();
-    return id;
-  }
 
   // 消息管理
   const addMessage = (message: Partial<Message>) => {
@@ -113,41 +99,36 @@ const App: React.FC = () => {
       })
     })
 
-    // 模型分配中
-    socketRef.current.on('model_assigning', (data) => {
-      console.log('⏳ 模型分配中:', data)
-      setLoading(true)
-      addMessage({
-        content: data.message,
-        isUser: false,
-      })
-    })
+    // // 模型分配中
+    // socketRef.current.on('model_assigning', (data) => {
+    //   setLoading(true)
+    //   addMessage({
+    //     content: data.message,
+    //     isUser: false,
+    //   })
+    // })
 
-    // 模型分配成功
-    socketRef.current.on('model_assigned', (data) => {
-      console.log('✅ 模型分配成功:', data)
-      setModelId(data.model_id)
-      setLoading(false)
+    // // 模型分配成功
+    // socketRef.current.on('model_assigned', (data) => {
+    //   console.log('✅ 模型分配成功:', data)
+    //   setModelId(data.model_id)
+    //   setLoading(false)
 
-      if (!currentConversation) {
-        createNewConversation()
-      }
-
-      addMessage({
-        content: `模型 ${data.model_id} 分配成功！`,
-        isUser: false,
-      })
-    })
+    //   addMessage({
+    //     content: `模型 ${data.model_id} 分配成功！`,
+    //     isUser: false,
+    //   })
+    // })
 
     // 模型分配失败
     socketRef.current.on('model_assign_failed', (data) => {
       console.log('❌ 模型分配失败:', data)
       setLoading(false)
-      addMessage({
-        content: data.message,
-        isUser: false,
-        isError: true,
-      })
+      // addMessage({
+      //   content: data.message,
+      //   isUser: false,
+      //   isError: true,
+      // })
     })
 
 
@@ -156,12 +137,6 @@ const App: React.FC = () => {
     socketRef.current.on('connected', (data) => {
       console.log('✅ 模型分配成功:', data)
       setModelId(data.model_id)
-      let id = currentConversation?.id
-
-      // 连接成功后自动创建对话
-      if (!currentConversation) {
-        id = createNewConversation()
-      }
       setLoading(false)
     })
 
@@ -193,60 +168,90 @@ const App: React.FC = () => {
       setLoading(false)
       // 这里可以实现流式显示
       if (modelIdRef.current && data.token) {
-        if (data.token === '<|...|>') {
-          // 结束这一条，并且加上...
-          webSocketStore.updateMessages((messages) => 
-            messages.map((message, index) => ({
-              ...message,
-              content: index === messages.length - 1 ? message.content + '...' : message.content,
-              end: index === messages.length - 1 ? true : false,
-              isUser: false,
-            }))
-          )
-          return;
-        }
-        if (data.token === '<|silence|>') {
-          // 给上一条消息加上结束标识
-          webSocketStore.updateMessages((messages) => 
-            messages.map((message, index) => ({
-              ...message,
-              end: index === messages.length - 1 ? true : false,
-            }))
-          )
-          return;
-        }
         const currentMessages = webSocketStore.getSnapshot()
-        console.log('当前messages:', currentMessages)
-        // 如果上一条是用户消息，直到收到<|round_start|>再开启token的接收
-        if (currentMessages.length > 0 && currentMessages[currentMessages.length - 1].isUser && !currentMessages[currentMessages.length - 1].end) {
-          if (data.token === '<|round_start|>') {
-            webSocketStore.updateMessages((messages) => 
+        const lastMessage = currentMessages?.length > 0 ? currentMessages?.[currentMessages?.length - 1] : undefined;
+        // 收到...
+        if (data.token === '<|...|>') {
+          // 上一条后端返回的
+          if (lastMessage && !lastMessage.isUser) {
+            // 收到...则结束这一条，并且加上...
+            webSocketStore.updateMessages((messages) =>
               messages.map((message, index) => ({
                 ...message,
+                content: index === messages.length - 1 ? message.content + '...' : message.content,
                 end: index === messages.length - 1 ? true : false,
+                isUser: false,
               }))
             )
-            return;
           }
+          // 上一条是用户信息则直接跳过
           return;
         }
-        // 如果没有消息或上一条消息有结束标识，则创建一条新消息
-        if (
-          currentMessages.length === 0 ||
-          currentMessages[currentMessages.length - 1].end
-        ) {
-          addMessage({
-            content: data.token,
-            isUser: false,
-          })
-        } else {
-          // 把这条token连接在message最后
-          webSocketStore.updateMessages((messages) => 
+        // 收到silence则结束当条
+        if (data.token === '<|silence|>') {
+          // 上一条后端返回的
+          if (lastMessage && !lastMessage.isUser) {
+            webSocketStore.updateMessages((messages) =>
+              messages.map((message, index) => ({
+                ...message,
+                // 最后一条加上结束标识
+                end: index === messages.length - 1 ? true : message.end
+              }))
+            )
+          }
+          // 上一条是用户信息则直接跳过
+          return;
+        }
+        // 直到收到<|round_start|>再开启token的接收
+        if (data.token === '<|round_start|>') {
+          webSocketStore.updateMessages((messages) =>
             messages.map((message, index) => ({
               ...message,
-              content: index === messages.length - 1 ? message.content + data.token : message.content,
+              // 上一条改成end=True，标识可以开始token的接收了
+              end: index === messages.length - 1 ? true : message.end,
             }))
           )
+          return;
+        }
+        console.log('当前messages:', currentMessages)
+        if (data.token === '<|round_start|>') {
+          webSocketStore.updateMessages((messages) =>
+            messages.map((message, index) => ({
+              ...message,
+              // 上一条改成end=True，如果是用户的消息标识可以开始接收；如果是后端的消息标识这一条已经结束
+              end: index === messages.length - 1 ? true : message.end,
+            }))
+          )
+          return;
+        }
+        if (lastMessage && lastMessage.isUser) {
+          if (lastMessage?.end) {
+            // end=True，标识收到过round_start，开启新的一条
+            addMessage({
+              content: data.token,
+              isUser: false,
+            })
+            return;
+          } else {
+            return;
+          }
+
+        } else {
+          // 还没有数据，或上一条后端返回的已经结束，开启新的一条
+          if (!lastMessage || lastMessage.end) {
+            addMessage({
+              content: data.token,
+              isUser: false,
+            })
+          } else {
+            // 把这条token连接在message最后
+            webSocketStore.updateMessages((messages) =>
+              messages.map((message, index) => ({
+                ...message,
+                content: index === messages.length - 1 ? message.content + data.token : message.content,
+              }))
+            )
+          }
         }
       }
     })
@@ -286,14 +291,11 @@ const App: React.FC = () => {
 
   // 统一的发送消息方法
   const sendMessage = (content: string, files: File[] = []) => {
-    if (!currentConversation) {
-      createNewConversation()
-    }
 
     // 添加用户消息
-    let displayContent = content
-    if (files.length > 0) displayContent += ' [包含文件]'
-    if (isVideoStreaming) displayContent += ' [含视频流]'
+    const displayContent = content
+    // if (files.length > 0) displayContent += ' [包含文件]'
+    // if (isVideoStreaming) displayContent += ' [含视频流]'
 
     addMessage({
       content: displayContent,
@@ -305,8 +307,8 @@ const App: React.FC = () => {
     if (socketRef.current && isConnected) {
       try {
         if (content.trim() !== '') {
-          // 统一使用 send_message 事件
-          socketRef.current.emit('send_message', {
+          // 统一使用 send_data 事件
+          socketRef.current.emit('send_data', {
             message: content,
           })
         }
@@ -314,7 +316,7 @@ const App: React.FC = () => {
         if (files.length > 0) {
           for (const file of files) {
             if (file.type.startsWith('image/')) {
-              socketRef.current.emit('send_image', {
+              socketRef.current.emit('send_data', {
                 image: file,
               })
             } else if (file.type.startsWith('video/')) {
@@ -353,7 +355,7 @@ const App: React.FC = () => {
           <div className="h-full w-full pt-2 pl-4 pr-4 pb-0 flex flex-col" style={{ height: '100vh' }}>
             <div className="flex flex-row items-center justify-between flex-0">
               <SidebarTrigger style={{ backgroundColor: 'transparent' }} />
-              <div className="font-bold">离线视频理解</div>
+              <div className="font-bold">{activeKey === SidebarKey.Chat ? "Chat Prompt" : "Stream realtime"}</div>
               <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
                 {isConnected ? (
                   <>

@@ -26,7 +26,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     const captureTimerRef = useRef<NodeJS.Timeout | null>(null)
 
     const [videoQuality, setVideoQuality] = useState<'480p' | '720p' | '1080p'>('480p')
-    const [frameRate, setFrameRate] = useState<0.5 | 1>(0.5)
+    const [frameRate, setFrameRate] = useState<0.5 | 1>(1)
     const [startTime, setStartTime] = useState<string>('--')
     const [duration, setDuration] = useState<number>(0)
     const [dataTransferred, setDataTransferred] = useState<string>('0 MB')
