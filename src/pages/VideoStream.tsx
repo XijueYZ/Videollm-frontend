@@ -25,7 +25,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
     const rateTimerRef = useRef<NodeJS.Timeout | null>(null)
     const captureTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-    const [videoQuality, setVideoQuality] = useState<'480p' | '720p' | '1080p'>('480p')
+    const [videoQuality, setVideoQuality] = useState<'480p' | '720p' | '1080p'>('720p')
     const [frameRate, setFrameRate] = useState<0.5 | 1>(1)
     const [startTime, setStartTime] = useState<string>('--')
     const [duration, setDuration] = useState<number>(0)
@@ -456,7 +456,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                         {/* 控制按钮 */}
                         <div className="grid grid-cols-2 gap-2">
                             <Button
-                                variant="outline"
+                                variant="secondary"
                                 onClick={startCameraStream}
                                 disabled={isVideoStreaming}
                                 className="flex items-center gap-2"
@@ -465,7 +465,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                                 摄像头
                             </Button>
                             <Button
-                                variant="outline"
+                                variant="secondary"
                                 onClick={startScreenStream}
                                 disabled={isVideoStreaming}
                                 className="flex items-center gap-2"
@@ -476,7 +476,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                         </div>
 
                         <Button
-                            variant="outline"
+                            variant="secondary"
                             onClick={triggerFileUpload}
                             disabled={isVideoStreaming}
                             className="w-full flex items-center"
@@ -486,10 +486,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                         </Button>
 
                         <Button
-                            variant="outline"
                             onClick={stopStream}
                             disabled={!isVideoStreaming}
-                            className="w-full flex items-center gap-2 border-red-200 hover:bg-red-50 hover:text-red-600"
+                            className="w-full flex items-center gap-2 "
+                            variant="destructive"
                         >
                             <Square className="h-4 w-4" />
                             停止传输

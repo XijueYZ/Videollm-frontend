@@ -6,11 +6,12 @@ import Chat from "./pages/Chat"
 import Stream from "./pages/Stream"
 import { SidebarProvider, SidebarTrigger } from "./components/ui/sidebar"
 import { Badge } from "./components/ui/badge"
-import { Wifi, WifiOff } from "lucide-react"
+import { Settings, Wifi, WifiOff } from "lucide-react"
 import { Separator } from "./components/ui/separator"
 import LeftSideBar from "./pages/Sidebar"
 import './App.css'
 import useWebSocketData, { webSocketStore } from "./WebSocketStore"
+import { Button } from "./components/ui/button"
 
 // TODO: 使用当前域名
 const socketUrl = '/' // 空字符串会使用当前域名
@@ -31,6 +32,7 @@ const App: React.FC = () => {
   const [modelId, setModelId] = useState<string | null>(null)
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
   const [videoStreamType, setVideoStreamType] = useState<string | null>(null);
+  const [collapseSettings, setCollapseSettings] = useState(false)
 
   const messages = useWebSocketData()
   const modelIdRef = useRef(modelId)
@@ -98,12 +100,12 @@ const App: React.FC = () => {
     })
 
     // 模型分配中
-    socketRef.current.on('model_assigning', (data) => {
+    socketRef.current.on('model_assigning', () => {
       isAssigningRef.current = true
-    //   addMessage({
-    //     content: data.message,
-    //     isUser: false,
-    //   })
+      //   addMessage({
+      //     content: data.message,
+      //     isUser: false,
+      //   })
     })
 
     // 模型分配成功
@@ -131,7 +133,7 @@ const App: React.FC = () => {
     })
 
     // 有模型空出来了
-    socketRef.current.on('has_model_released', (data) => {
+    socketRef.current.on('has_model_released', () => {
       if (!modelIdRef.current && !isAssigningRef.current) {
         socketRef.current?.emit('request_model', {
           activeKey: activeKey,
@@ -317,25 +319,32 @@ const App: React.FC = () => {
         <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
 
           <div className="h-full w-full pt-2 pl-4 pr-4 pb-0 flex flex-col" style={{ height: '100vh' }}>
-            <div className="flex flex-row items-center justify-between flex-0">
-              <SidebarTrigger style={{ backgroundColor: 'transparent' }} />
+            <div className="flex flex-row items-center justify-between flex-0 align-middle">
+              <SidebarTrigger/>
               <div className="font-bold">{activeKey === SidebarKey.Chat ? "Chat Prompt" : "Stream realtime"}</div>
-              <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
-                {isConnected ? (
-                  <>
-                    <Wifi className="h-4 w-4 mr-2" />
-                    已连接到服务器
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-4 w-4 mr-2" />
-                    连接中...
-                  </>
-                )}
-              </Badge>
+              <div className="flex flex-row items-center justify-center">
+                <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
+                  {isConnected ? (
+                    <>
+                      <Wifi className="h-4 w-4 mr-2" />
+                      已连接到服务器
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-4 w-4 mr-2" />
+                      连接中...
+                    </>
+                  )}
+                </Badge>
+                {collapseSettings &&
+                  <Button className="h-[28px]" variant="ghost" size="sm" onClick={() => setCollapseSettings(false)}>
+                    {/* 设置icon */}
+                    <Settings />
+                  </Button>}
+              </div>
             </div>
             <Separator />
-            {activeKey === SidebarKey.Chat && <Chat />}
+            {activeKey === SidebarKey.Chat && <Chat collapseSettings={collapseSettings} setCollapseSettings={setCollapseSettings} />}
             {activeKey === SidebarKey.Stream && <Stream />}
           </div>
         </ChatContext.Provider>
