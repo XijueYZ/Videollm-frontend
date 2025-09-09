@@ -36,7 +36,6 @@ const Stream = () => {
     return (
         <div className="flex flex-row h-full flex-1"  style={{ height: 'calc(100% - 29px)'}}>
             <div className="flex flex-col h-full overflow-hidden bg-background flex-1">
-                {/* <VideoStream /> */}
                 {/* 消息区域 */}
                 <div className="flex-1 overflow-y-auto p-4">
                     {messages.length === 0 ? (

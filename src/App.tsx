@@ -29,13 +29,13 @@ const App: React.FC = () => {
   const [activeKey, setActiveKey] = useState(SidebarKey.Chat)
   const [isConnected, setIsConnected] = useState(false)
   const [modelId, setModelId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false);
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
   const [videoStreamType, setVideoStreamType] = useState<string | null>(null);
 
   const messages = useWebSocketData()
   const modelIdRef = useRef(modelId)
   const socketRef = useRef<Socket | null>(null)
+  const isAssigningRef = useRef<boolean>(false);
 
   useEffect(() => {
     modelIdRef.current = modelId
@@ -59,12 +59,13 @@ const App: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    if (socketRef.current && activeKey) {
-      socketRef.current.emit('request_model', {
+    console.log(activeKey)
+    if (isConnected) {
+      socketRef?.current?.emit('request_model', {
         activeKey: activeKey,
       })
     }
-  }, [activeKey])
+  }, [activeKey, isConnected])
 
   // 消息管理
   const addMessage = (message: Partial<Message>) => {
@@ -94,36 +95,34 @@ const App: React.FC = () => {
     socketRef.current.on('connect', () => {
       console.log('WebSocket 连接成功', socketRef.current)
       setIsConnected(true)
-      socketRef.current?.emit('request_model', {
-        activeKey: activeKey,
-      })
     })
 
-    // // 模型分配中
-    // socketRef.current.on('model_assigning', (data) => {
-    //   setLoading(true)
+    // 模型分配中
+    socketRef.current.on('model_assigning', (data) => {
+      isAssigningRef.current = true
     //   addMessage({
     //     content: data.message,
     //     isUser: false,
     //   })
-    // })
+    })
 
-    // // 模型分配成功
-    // socketRef.current.on('model_assigned', (data) => {
-    //   console.log('✅ 模型分配成功:', data)
-    //   setModelId(data.model_id)
-    //   setLoading(false)
+    // 模型分配成功
+    socketRef.current.on('model_assigned', (data) => {
+      console.log('✅ 模型分配成功:', data)
+      setModelId(data.model_id)
+      isAssigningRef.current = false
 
-    //   addMessage({
-    //     content: `模型 ${data.model_id} 分配成功！`,
-    //     isUser: false,
-    //   })
-    // })
+      // addMessage({
+      //   content: `模型 ${data.model_id} 分配成功！`,
+      //   isUser: false,
+      // })
+    })
 
     // 模型分配失败
     socketRef.current.on('model_assign_failed', (data) => {
       console.log('❌ 模型分配失败:', data)
-      setLoading(false)
+      isAssigningRef.current = false
+      setModelId(null);
       // addMessage({
       //   content: data.message,
       //   isUser: false,
@@ -131,41 +130,19 @@ const App: React.FC = () => {
       // })
     })
 
-
-    // 连接确认，获取分配的模型ID
-    // 在 initSocket() 方法中的 'connected' 事件处理器里修改：
-    socketRef.current.on('connected', (data) => {
-      console.log('✅ 模型分配成功:', data)
-      setModelId(data.model_id)
-      setLoading(false)
-    })
-
-    // 模型繁忙
-    socketRef.current.on('waiting_for_model', (data) => {
-      console.log('模型繁忙:', data)
-      setLoading(false)
-      addMessage({
-        content: data.message || '模型池繁忙，正在排队中……',
-        isUser: false,
-        isError: true,
-      })
-    })
-
-    // 模型响应
-    socketRef.current.on('model_response', (data) => {
-      console.log('收到模型响应:', data)
-      addMessage({
-        content: data.result || '模型响应为空',
-        isUser: false,
-      })
-      setLoading(false)
+    // 有模型空出来了
+    socketRef.current.on('has_model_released', (data) => {
+      if (!modelIdRef.current && !isAssigningRef.current) {
+        socketRef.current?.emit('request_model', {
+          activeKey: activeKey,
+        })
+      }
     })
 
     console.log('messages:', messages)
     // 流式token响应（如果后端支持）
     socketRef.current.on('new_token', (data) => {
       console.log('收到新token:', data)
-      setLoading(false)
       // 这里可以实现流式显示
       if (modelIdRef.current && data.token) {
         const currentMessages = webSocketStore.getSnapshot()
@@ -271,21 +248,12 @@ const App: React.FC = () => {
         isUser: false,
         isError: true,
       })
-      setLoading(false)
     })
 
     // 连接错误
     socketRef.current.on('connect_error', (error) => {
       console.error('连接错误:', error)
       setIsConnected(false)
-      const currentMessages = webSocketStore.getSnapshot()
-      if (!currentMessages?.length || !currentMessages[currentMessages.length - 1].isError) {
-        addMessage({
-          content: '无法连接到后端服务，请检查服务是否启动',
-          isUser: false,
-          isError: true,
-        })
-      }
     })
   }
 
@@ -301,8 +269,6 @@ const App: React.FC = () => {
       content: displayContent,
       isUser: true,
     })
-
-    setLoading(true)
 
     if (socketRef.current && isConnected) {
       try {
@@ -333,7 +299,6 @@ const App: React.FC = () => {
           isUser: false,
           isError: true,
         })
-        setLoading(false)
       }
     } else {
       addMessage({
@@ -341,7 +306,6 @@ const App: React.FC = () => {
         isUser: false,
         isError: true,
       })
-      setLoading(false)
     }
   }
 
@@ -350,7 +314,7 @@ const App: React.FC = () => {
     <SidebarProvider>
       <LeftSideBar items={defaultItems} activeKey={activeKey} setActiveKey={setActiveKey} />
       <div className="flex-1 flex flex-col min-w-0">
-        <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, loading, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
+        <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
 
           <div className="h-full w-full pt-2 pl-4 pr-4 pb-0 flex flex-col" style={{ height: '100vh' }}>
             <div className="flex flex-row items-center justify-between flex-0">
