@@ -133,7 +133,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                                 const reader = new FileReader()
                                 reader.onloadend = () => {
                                     const base64data = reader.result
-                                    socketRef.current?.emit('send_image', {
+                                    socketRef.current?.emit('send_data', {
                                         image_data: base64data,
                                         is_video_frame: true,
                                         frame_timestamp: Date.now(),
