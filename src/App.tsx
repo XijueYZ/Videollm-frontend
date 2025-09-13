@@ -294,6 +294,7 @@ const App: React.FC = () => {
     const displayContent = content
     addMessage({
       content: displayContent,
+      files: files,
       isUser: true,
     })
 
