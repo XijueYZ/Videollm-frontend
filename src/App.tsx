@@ -301,36 +301,22 @@ const App: React.FC = () => {
     if (socketRef.current && isConnected) {
       try {
         if (files.length > 0) {
-          // 将文件转换为base64或ArrayBuffer
+          // 将文件转换为ArrayBuffer（更高效）
           const processedFiles = await Promise.all(
             files.map(async (file) => {
-              return new Promise((resolve, reject) => {
-                const reader = new FileReader()
-                
-                reader.onload = () => {
-                  resolve({
-                    name: file.name,
-                    type: file.type,
-                    size: file.size,
-                    data: reader.result, // base64 string
-                  })
-                }
-                
-                reader.onerror = () => {
-                  reject(new Error(`读取文件失败: ${file.name}`))
-                }
-                
-                // 使用readAsDataURL获取base64，或者readAsArrayBuffer获取二进制数据
-                reader.readAsDataURL(file)
-              })
+              const arrayBuffer = await file.arrayBuffer()
+              return {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                data: arrayBuffer, // 使用ArrayBuffer而不是base64
+              }
             })
           )
 
-          // 分别处理图片和视频
-          const imageFiles = processedFiles.filter((file: any) => typeof file.type === 'string' && file.type.startsWith('image/'))
-          const videoFiles = processedFiles.filter((file: any) => typeof file.type === 'string' && file.type.startsWith('video/'))
+          const imageFiles = processedFiles.filter(file => file.type.startsWith('image/'))
+          const videoFiles = processedFiles.filter(file => file.type.startsWith('video/'))
 
-          console.log('发送文件数据:', { imageFiles: imageFiles.length, videoFiles: videoFiles.length })
           socketRef.current.emit('send_data', {
             images: imageFiles,
             videos: videoFiles,
