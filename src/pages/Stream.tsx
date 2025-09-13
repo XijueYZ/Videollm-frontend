@@ -3,7 +3,7 @@ import { Send, Bot, User } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { ChatContext } from '@/utils'
+import { ChatContext, SidebarKey } from '@/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import VideoStream from '@/pages/VideoStream'
@@ -22,7 +22,7 @@ const Stream = () => {
     const handleSendMessage = () => {
         if (!inputValue.trim() || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        sendMessage(inputValue, [])
+        sendMessage(inputValue, [], SidebarKey.Stream)
         setInputValue('')
         inputRef.current?.focus()
     }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { ChatContext, qualityConfig, VideoStreamType } from '@/utils'
+import { ChatContext, qualityConfig, SidebarKey, VideoStreamType } from '@/utils'
 
 interface VideoStreamProps {
     className?: string
@@ -133,10 +133,10 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
                                 const reader = new FileReader()
                                 reader.onloadend = () => {
                                     const base64data = reader.result
+                                    
                                     socketRef.current?.emit('send_data', {
                                         image_data: base64data,
-                                        is_video_frame: true,
-                                        frame_timestamp: Date.now(),
+                                        type: SidebarKey.Stream
                                     })
                                 }
                                 reader.readAsDataURL(blob)
