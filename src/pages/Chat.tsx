@@ -25,6 +25,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     const [videoMaxLen, setVideoMaxLen] = useState(256)
     const [outputLength, setOutputLength] = useState(1024)
     const [repetitionPenalty, setRepetitionPenalty] = useState(1.0)
+    const [thinkingMode, setThinkingMode] = useState(false)
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -38,6 +39,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     const handleSendMessage = () => {
         if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        // 判断selectedFiles里面有没有视频
+        const hasVideo = selectedFiles.some(file => file.type.startsWith('video/'))
         sendMessage(inputValue, selectedFiles, SidebarKey.Chat, {
             media_kwargs: {
                 video_fps: videoFps,
@@ -51,6 +54,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                 max_new_tokens: outputLength,
                 repetition_penalty: repetitionPenalty,
             },
+            thinking_mode: thinkingMode,
+            system_prompt_type: hasVideo ? 'video' : 'text_image'
         })
         setInputValue('')
         setSelectedFiles([])
@@ -349,7 +354,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                             <div className="text-xs text-left text-gray-400 mb-4">Thinking</div>
                             <div className="flex flex-row justify-between space-y-1.5">
                                 <Label htmlFor="mode">Thinking Mode</Label>
-                                <Switch id="thinking-mode" />
+                                <Switch id="thinking-mode" checked={thinkingMode} onCheckedChange={setThinkingMode} />
                             </div>
                             <Separator className='mt-2 mb-6' />
                             <div className="text-xs text-left text-gray-400 mb-4">Advanced settings</div>
