@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useContext } from 'react'
-import { Send, Bot, User, Paperclip, X, Image, Video, Pause } from 'lucide-react'
+import { Send, Bot, User, Paperclip, X, Pause } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { FilePreview } from '@/components/ui/videoPreview'
 
 const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapseSettings: boolean) => void, isChatOutputting: boolean }) => {
     const { collapseSettings, setCollapseSettings, isChatOutputting } = props
@@ -37,7 +38,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     }, [messages?.length])
 
     const handleSendMessage = () => {
-        if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
+        // TODO:
+        // if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
         // 判断selectedFiles里面有没有视频
         const hasVideo = selectedFiles.some(file => file.type.startsWith('video/'))
@@ -92,25 +94,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
         setSelectedFiles(prev => prev.filter((_, i) => i !== index))
     }
 
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes'
-        const k = 1024
-        const sizes = ['Bytes', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-    }
-
-    const getFileIcon = (file: File) => {
-        if (file.type.startsWith('image/')) {
-            return <Image className="h-4 w-4" />
-        } else if (file.type.startsWith('video/')) {
-            return <Video className="h-4 w-4" />
-        }
-        return <Paperclip className="h-4 w-4" />
-    }
-
     return (
-        <div className="flex flex-row">
+        <div className="flex flex-row h-full flex-1" style={{ height: 'calc(100% - 29px)' }}>
             <div className="flex flex-col h-full overflow-hidden bg-background flex-1" >
 
                 {/* 消息区域 */}
@@ -154,6 +139,12 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                                 <div className="whitespace-pre-wrap break-all text-sm">
                                                     {message.content}
                                                 </div>
+                                                {message?.files?.map((file, index) => (
+                                                    <FilePreview
+                                                        key={index}
+                                                        file={file}
+                                                    />
+                                                ))}
                                             </CardContent>
                                         </Card>
 
@@ -178,26 +169,16 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
 
                 <Separator />
 
-                {/* 文件预览区域 */}
+                {/* 文件预览区域 - 更新这部分 */}
                 {selectedFiles.length > 0 && (
                     <div className="p-4 border-b bg-muted/30">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3">
                             {selectedFiles.map((file, index) => (
-                                <div key={index} className="flex items-center gap-2 bg-background rounded-lg p-2 border">
-                                    {getFileIcon(file)}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium truncate">{file.name}</div>
-                                        <div className="text-xs text-muted-foreground">{formatFileSize(file.size)}</div>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => removeFile(index)}
-                                        className="h-6 w-6 p-0 border-destructive/20 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </Button>
-                                </div>
+                                <FilePreview
+                                    key={index}
+                                    file={file}
+                                    onRemove={() => removeFile(index)}
+                                />
                             ))}
                         </div>
                     </div>
@@ -222,7 +203,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     variant="outline"
                                     size="sm"
                                     onClick={() => fileInputRef.current?.click()}
-                                    disabled={!isConnected}
+                                    // TODO:
+                                    // disabled={!isConnected}
                                     className="h-8 w-8 p-0 rounded-full border-muted-foreground/20 hover:bg-muted hover:border-muted-foreground/30"
                                 >
                                     <Paperclip className="h-4 w-4" />
@@ -230,7 +212,8 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 {!isChatOutputting ? <Button
                                     variant="outline"
                                     onClick={handleSendMessage}
-                                    disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
+                                    // TODO:
+                                    // disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
                                     size="sm"
                                     className="h-8 w-8 p-0 rounded-full border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:border-muted-foreground/10"
                                 >

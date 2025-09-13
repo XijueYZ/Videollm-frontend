@@ -13,6 +13,7 @@ type Conversation = {
 
 type Message = {
     content: string;
+    files?: File[];
     isUser: boolean;
     isError?: boolean;
     timestamp: number;

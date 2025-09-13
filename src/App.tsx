@@ -109,10 +109,6 @@ const App: React.FC = () => {
     // 模型分配中
     socketRef.current.on('model_assigning', () => {
       isAssigningRef.current = true
-      //   addMessage({
-      //     content: data.message,
-      //     isUser: false,
-      //   })
     })
 
     // 模型分配成功
@@ -120,11 +116,6 @@ const App: React.FC = () => {
       console.log('✅ 模型分配成功:', data)
       setModelId(data.model_id)
       isAssigningRef.current = false
-
-      // addMessage({
-      //   content: `模型 ${data.model_id} 分配成功！`,
-      //   isUser: false,
-      // })
     })
 
     // 模型分配失败
@@ -301,11 +292,10 @@ const App: React.FC = () => {
 
     // 添加用户消息
     const displayContent = content
-    // if (files.length > 0) displayContent += ' [包含文件]'
-    // if (isVideoStreaming) displayContent += ' [含视频流]'
 
     addMessage({
       content: displayContent,
+      files: files,
       isUser: true,
     })
 

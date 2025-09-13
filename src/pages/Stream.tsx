@@ -22,7 +22,7 @@ const Stream = () => {
     const handleSendMessage = () => {
         if (!inputValue.trim() || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        sendMessage(inputValue, [], SidebarKey.Stream)
+        sendMessage(inputValue, [], SidebarKey.Stream, undefined)
         setInputValue('')
         inputRef.current?.focus()
     }
