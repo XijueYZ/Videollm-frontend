@@ -10,7 +10,7 @@ import { Settings, Wifi, WifiOff } from "lucide-react"
 import { Separator } from "./components/ui/separator"
 import LeftSideBar from "./pages/Sidebar"
 import './App.css'
-import useWebSocketData, { webSocketStore } from "./WebSocketStore"
+import useWebSocketData, { useActiveKey, webSocketStore } from "./WebSocketStore"
 import { Button } from "./components/ui/button"
 
 // TODO: 使用当前域名
@@ -27,7 +27,8 @@ const socketPath = path + '/5000/socket.io'
 // const socketPath = '/';
 
 const App: React.FC = () => {
-  const [activeKey, setActiveKey] = useState(SidebarKey.Chat)
+  // 从Store获取activeKey，而不是本地state
+  const activeKey = useActiveKey()
   const [isConnected, setIsConnected] = useState(false)
   const [modelId, setModelId] = useState<string | null>(null)
   const [isVideoStreaming, setIsVideoStreaming] = useState(false);
@@ -52,7 +53,6 @@ const App: React.FC = () => {
 
   // 切换页面时，清空消息
   useEffect(() => {
-    webSocketStore.clearMessages();
     setIsVideoStreaming(false)
     setVideoStreamType(null)
   }, [activeKey])
@@ -116,6 +116,8 @@ const App: React.FC = () => {
       console.log('✅ 模型分配成功:', data)
       setModelId(data.model_id)
       isAssigningRef.current = false
+
+      webSocketStore.setIsSwitchingType(false);
     })
 
     // 模型分配失败
@@ -123,11 +125,6 @@ const App: React.FC = () => {
       console.log('❌ 模型分配失败:', data)
       isAssigningRef.current = false
       setModelId(null);
-      // addMessage({
-      //   content: data.message,
-      //   isUser: false,
-      //   isError: true,
-      // })
     })
 
     // 有模型空出来了
@@ -139,9 +136,12 @@ const App: React.FC = () => {
       }
     })
 
-    console.log('messages:', messages)
     // 流式token响应（如果后端支持）
     socketRef.current.on('new_token', (data) => {
+      // 如果正在切换模型，则不处理中间输出的这些token
+      if (webSocketStore.getIsSwitchingType()) {
+        return;
+      }
       if (activeKeyRef.current === SidebarKey.Stream) {
         console.log('[实时]收到新token:', data)
         // 这里可以实现流式显示
@@ -228,6 +228,7 @@ const App: React.FC = () => {
         if (modelIdRef.current && data.token) {
           const currentMessages = webSocketStore.getSnapshot()
           const lastMessage = currentMessages?.length > 0 ? currentMessages?.[currentMessages?.length - 1] : undefined;
+          if (data.token === "<|eot_id|>") return;
           // 如果收到round_end，代表后端输出完毕，用户可以继续输出
           if (data.token === '<|round_end|>') {
             setIsChatOutputting(false)
@@ -346,7 +347,7 @@ const App: React.FC = () => {
   // 占满除了SideBar的区域
   return <div className="h-screen w-full overflow-clip">
     <SidebarProvider>
-      <LeftSideBar items={defaultItems} activeKey={activeKey} setActiveKey={setActiveKey} />
+      <LeftSideBar items={defaultItems}/>
       <div className="flex-1 flex flex-col min-w-0">
         <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
 

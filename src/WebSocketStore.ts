@@ -24,11 +24,6 @@ class WebSocketStore {
     return this.activeKey;
   }
 
-  // 获取当前活跃的数据
-  private getCurrentData(): Message[] {
-    return this.activeKey === SidebarKey.Chat ? this.chatData : this.streamData;
-  }
-
   // 设置当前活跃的数据
   private setCurrentData(newData: Message[]) {
     if (this.activeKey === SidebarKey.Chat) {
@@ -72,7 +67,6 @@ class WebSocketStore {
   updateLastMessage(updater: (message: Message) => Message, type?: SidebarKey) {
     const targetType = type || this.activeKey;
     const currentData = this.getDataByType(targetType);
-    
     if (currentData.length > 0) {
       const newData = currentData.map((message, index) =>
         index === currentData.length - 1 ? updater(message) : message
@@ -121,7 +115,7 @@ class WebSocketStore {
   }
 
   getSnapshot() {
-    return this.getCurrentData();
+    return this.activeKey === SidebarKey.Chat ? this.chatData : this.streamData;
   }
 
   // 获取activeKey的快照（用于Hook）
