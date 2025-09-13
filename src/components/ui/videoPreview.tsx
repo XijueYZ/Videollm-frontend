@@ -4,7 +4,7 @@ import { Button } from "./button"
 import { formatFileSize } from "@/utils"
 
 // 添加文件预览组件
-export const FilePreview = ({ file, onRemove }: { file: File, onRemove?: () => void }) => {
+export const FilePreview = ({ file, onRemove, upLoading }: { file: File, onRemove?: () => void, upLoading?: boolean }) => {
     const [previewUrl, setPreviewUrl] = useState<string>('')
     const [isPlaying, setIsPlaying] = useState(false)
     const videoRef = useRef<HTMLVideoElement>(null)
@@ -84,7 +84,7 @@ export const FilePreview = ({ file, onRemove }: { file: File, onRemove?: () => v
                         )}
                         
                         {/* 播放/暂停按钮覆盖层 */}
-                        {previewUrl && !isPlaying && (
+                        {previewUrl && !isPlaying && !upLoading && (
                             <div 
                                 className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
                                 onClick={handleVideoClick}
@@ -92,6 +92,29 @@ export const FilePreview = ({ file, onRemove }: { file: File, onRemove?: () => v
                                 <div className="bg-white/90 rounded-full p-3 hover:bg-white transition-colors">
                                     <svg className="h-6 w-6 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 上传中的覆盖层 */}
+                        {previewUrl && upLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                                <div className="bg-white/90 rounded-full p-3">
+                                    <svg className="h-6 w-6 text-gray-700 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle 
+                                            className="opacity-25" 
+                                            cx="12" 
+                                            cy="12" 
+                                            r="10" 
+                                            stroke="currentColor" 
+                                            strokeWidth="4"
+                                        />
+                                        <path 
+                                            className="opacity-75" 
+                                            fill="currentColor" 
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        />
                                     </svg>
                                 </div>
                             </div>

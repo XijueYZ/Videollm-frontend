@@ -289,12 +289,16 @@ const App: React.FC = () => {
   }
 
   // 统一的发送消息方法
-  const sendMessage = async (content: string, files: File[] = [], type: SidebarKey, otherParams: Record<string, any> | undefined = {}) => {
+  const sendMessage = (
+    content: string,
+    files: (File | { name: string, type: string, size: number, path: string })[] = [],
+    type: SidebarKey,
+    otherParams: Record<string, any> | undefined = {}
+  ) => {
     // 添加用户消息
     const displayContent = content
     addMessage({
       content: displayContent,
-      files: files,
       isUser: true,
     })
 
@@ -303,29 +307,16 @@ const App: React.FC = () => {
         if (files.length > 0) {
           const imageFiles = files.filter(file => file.type.startsWith('image/'))
           const videoFiles = files.filter(file => file.type.startsWith('video/'))
-          
-          // 处理视频文件 - 转换为ArrayBuffer或base64
-          const processedVideoFiles = await Promise.all(
-            videoFiles.map(async (file) => {
-              const arrayBuffer = await file.arrayBuffer()
-              return {
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                data: arrayBuffer, // 或者使用base64: await fileToBase64(file)
-              }
-            })
-          )
 
-          console.log('发送文件:', { 
-            images: imageFiles.length, 
-            videos: processedVideoFiles.length,
-            totalSize: files.reduce((sum, file) => sum + file.size, 0)
+          console.log('发送文件:', {
+            images: imageFiles.length,
+            videos: videoFiles.length,
+            videoPaths: videoFiles
           })
-          
+
           socketRef.current.emit('send_data', {
-            images: imageFiles, // 直接发送File对象
-            videos: processedVideoFiles, // 发送处理后的数据
+            images: imageFiles, // 图片直接发送File对象
+            videos: videoFiles, // 视频只发送路径信息
             message: content,
             type: type,
             params: otherParams
@@ -340,7 +331,7 @@ const App: React.FC = () => {
       } catch (error) {
         console.error('发送消息失败:', error)
         addMessage({
-          content: '发送消息失败，请重试',
+          content: error instanceof Error ? error.message : '发送消息失败，请重试',
           isUser: false,
           isError: true,
         })
@@ -357,7 +348,7 @@ const App: React.FC = () => {
   // 占满除了SideBar的区域
   return <div className="h-screen w-full overflow-clip">
     <SidebarProvider>
-      <LeftSideBar items={defaultItems}/>
+      <LeftSideBar items={defaultItems} />
       <div className="flex-1 flex flex-col min-w-0">
         <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
 

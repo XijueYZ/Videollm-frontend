@@ -39,7 +39,7 @@ export const ChatContext = createContext<{
     isConnected: boolean;
     messages: Message[];
     addMessage: (message: Partial<Message>) => void;
-    sendMessage: (content: string, files: File[], type: SidebarKey, otherParams: Record<string, any> | undefined) => void;
+    sendMessage: (content: string, files: (File | { name: string, type: string, size: number, path: string })[], type: SidebarKey, otherParams: Record<string, any> | undefined) => void;
     isVideoStreaming: boolean;
     setIsVideoStreaming: Dispatch<SetStateAction<boolean>>;
     videoStreamType: string | null;

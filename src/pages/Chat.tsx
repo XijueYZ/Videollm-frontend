@@ -29,9 +29,58 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     const [repetitionPenalty, setRepetitionPenalty] = useState(1.0)
     const [thinkingMode, setThinkingMode] = useState(false)
 
+    // 添加状态来跟踪上传进度和结果
+    const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
+    const [uploadedVideos, setUploadedVideos] = useState<Map<string, string>>(new Map()) // filename -> server path
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    // 上传视频到服务器的函数
+    const uploadVideoToServer = async (file: File): Promise<string | null> => {
+        try {
+            const formData = new FormData()
+            formData.append('video', file)
+            formData.append('filename', file.name)
+            formData.append('filesize', file.size.toString())
+            // 添加Socket.IO的session ID
+            if (socketRef.current?.id) {
+                formData.append('socket_id', socketRef.current.id)
+            } else {
+                console.error('Socket ID 不存在，无法上传文件')
+                return null
+            }
+
+            // 获取当前域名，构建上传URL
+            const baseUrl = window.location.origin
+            const uploadUrl = `${baseUrl}/api/upload-video`
+
+            console.log('开始上传视频:', {
+                filename: file.name,
+                size: file.size,
+                socketId: socketRef.current?.id
+            })
+
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                body: formData,
+            })
+
+            if (response.ok) {
+                const result = await response.json()
+                console.log('视频上传成功:', result)
+                return result.filePath || result.path // 根据后端返回的字段名调整
+            } else {
+                const errorText = await response.text()
+                console.error('视频上传失败:', response.status, errorText)
+                return null
+            }
+        } catch (error) {
+            console.error('视频上传错误:', error)
+            return null
+        }
+    }
 
     // 自动滚动到底部
     useEffect(() => {
@@ -41,9 +90,20 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     const handleSendMessage = () => {
         if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-        // 判断selectedFiles里面有没有视频
         const hasVideo = selectedFiles.some(file => file.type.startsWith('video/'))
-        sendMessage(inputValue, selectedFiles, SidebarKey.Chat, {
+        // video用路径上传
+        const files = selectedFiles.map(file => {
+            if (file.type.startsWith('video/')) {
+                return {
+                    path: uploadedVideos.get(file.name) || '',
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                }
+            }
+            return file
+        })
+        sendMessage(inputValue, files, SidebarKey.Chat, {
             media_kwargs: {
                 video_fps: videoFps,
                 video_minlen: videoMinLen,
@@ -71,30 +131,30 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
         }
     }
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || [])
         const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
-        
+
         const validFiles: File[] = []
         const invalidFiles: string[] = []
         const oversizedFiles: string[] = []
-        
+
         files.forEach(file => {
             const isImage = file.type.startsWith('image/')
             const isVideo = file.type.startsWith('video/')
-            
+
             // 检查文件类型
             if (!isImage && !isVideo) {
                 invalidFiles.push(file.name)
                 return
             }
-            
+
             // 检查文件大小
             if (file.size > MAX_FILE_SIZE) {
                 oversizedFiles.push(`${file.name} (${formatFileSize(file.size)})`)
                 return
             }
-            
+
             validFiles.push(file)
         })
 
@@ -102,28 +162,82 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
         if (invalidFiles.length > 0) {
             alert(`以下文件格式不支持，只支持图片和视频文件：\n${invalidFiles.join(', ')}`)
         }
-        
+
         if (oversizedFiles.length > 0) {
             alert(`以下文件超过50MB限制：\n${oversizedFiles.join('\n')}`)
         }
 
-        // 只添加有效的文件
+        // 处理有效文件
         if (validFiles.length > 0) {
-            setSelectedFiles(prev => [...prev, ...validFiles])
+            const imageFiles = validFiles.filter(file => file.type.startsWith('image/'))
+            const videoFiles = validFiles.filter(file => file.type.startsWith('video/'))
+
+            // 直接添加图片文件
+            if (imageFiles.length > 0) {
+                setSelectedFiles(prev => [...prev, ...imageFiles])
+            }
+
+            // 上传视频文件
+            for (const videoFile of videoFiles) {
+                const fileKey = `${videoFile.name}_${videoFile.size}_${Date.now()}`
+
+                // 标记为正在上传
+                setUploadingFiles(prev => new Set([...prev, fileKey]))
+
+                // 先添加到选中文件列表（显示上传中状态）
+                setSelectedFiles(prev => [...prev, videoFile])
+
+                try {
+                    const serverPath = await uploadVideoToServer(videoFile)
+
+                    if (serverPath) {
+                        // 上传成功，保存服务器路径
+                        setUploadedVideos(prev => new Map([...prev, [videoFile.name, serverPath]]))
+                        console.log(`视频 ${videoFile.name} 上传成功，路径: ${serverPath}`)
+                    } else {
+                        // 上传失败，从选中文件中移除
+                        setSelectedFiles(prev => prev.filter(f => f !== videoFile))
+                        alert(`视频 ${videoFile.name} 上传失败，请重试`)
+                    }
+                } catch (error) {
+                    console.error(`视频 ${videoFile.name} 上传失败:`, error)
+                    setSelectedFiles(prev => prev.filter(f => f !== videoFile))
+                    alert(`视频 ${videoFile.name} 上传失败: ${error}`)
+                } finally {
+                    // 移除上传中标记
+                    setUploadingFiles(prev => {
+                        const newSet = new Set(prev)
+                        newSet.delete(fileKey)
+                        return newSet
+                    })
+                }
+            }
         }
-        
+
         // 清空input，允许重复选择同一文件
         if (fileInputRef.current) {
             fileInputRef.current.value = ''
         }
     }
 
+    // 修改文件移除函数
     const removeFile = (index: number) => {
+        const fileToRemove = selectedFiles[index]
+
+        // 如果是视频文件，也要从上传记录中移除
+        if (fileToRemove.type.startsWith('video/')) {
+            setUploadedVideos(prev => {
+                const newMap = new Map(prev)
+                newMap.delete(fileToRemove.name)
+                return newMap
+            })
+        }
+
         setSelectedFiles(prev => prev.filter((_, i) => i !== index))
     }
 
     return (
-        <div className="flex flex-row h-full flex-1"  style={{ height: 'calc(100% - 29px)'}}>
+        <div className="flex flex-row h-full flex-1" style={{ height: 'calc(100% - 29px)' }}>
             <div className="flex flex-col h-full overflow-hidden bg-background flex-1" >
 
                 {/* 消息区域 */}
@@ -206,6 +320,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     key={index}
                                     file={file}
                                     onRemove={() => removeFile(index)}
+                                    upLoading={uploadingFiles.has(file.name)}
                                 />
                             ))}
                         </div>
