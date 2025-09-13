@@ -1,6 +1,7 @@
 import { Video, X, Image } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "./button"
+import { formatFileSize } from "@/utils"
 
 // 添加文件预览组件
 export const FilePreview = ({ file, onRemove }: { file: File, onRemove?: () => void }) => {
@@ -39,14 +40,6 @@ export const FilePreview = ({ file, onRemove }: { file: File, onRemove?: () => v
 
     const handleVideoPause = () => {
         setIsPlaying(false)
-    }
-
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes'
-        const k = 1024
-        const sizes = ['Bytes', 'KB', 'MB', 'GB']
-        const i = Math.floor(Math.log(bytes) / Math.log(k))
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
     }
 
     return (

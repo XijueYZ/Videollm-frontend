@@ -3,7 +3,7 @@ import { Send, Bot, User, Paperclip, X, Pause } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { ChatContext, SidebarKey } from '@/utils'
+import { ChatContext, formatFileSize, SidebarKey } from '@/utils'
 import { Card, CardContent, CardDescription } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -39,8 +39,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     }, [messages?.length])
 
     const handleSendMessage = () => {
-        // TODO:
-        // if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
+        if ((!inputValue.trim() && selectedFiles.length === 0) || !isConnected || !socketRef.current) return
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
         // 判断selectedFiles里面有没有视频
         const hasVideo = selectedFiles.some(file => file.type.startsWith('video/'))
@@ -74,17 +73,45 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || [])
-        const validFiles = files.filter(file => {
+        const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+        
+        const validFiles: File[] = []
+        const invalidFiles: string[] = []
+        const oversizedFiles: string[] = []
+        
+        files.forEach(file => {
             const isImage = file.type.startsWith('image/')
             const isVideo = file.type.startsWith('video/')
-            return isImage || isVideo
+            
+            // 检查文件类型
+            if (!isImage && !isVideo) {
+                invalidFiles.push(file.name)
+                return
+            }
+            
+            // 检查文件大小
+            if (file.size > MAX_FILE_SIZE) {
+                oversizedFiles.push(`${file.name} (${formatFileSize(file.size)})`)
+                return
+            }
+            
+            validFiles.push(file)
         })
 
-        if (validFiles.length !== files.length) {
-            alert('只支持图片和视频文件')
+        // 显示错误信息
+        if (invalidFiles.length > 0) {
+            alert(`以下文件格式不支持，只支持图片和视频文件：\n${invalidFiles.join(', ')}`)
+        }
+        
+        if (oversizedFiles.length > 0) {
+            alert(`以下文件超过50MB限制：\n${oversizedFiles.join('\n')}`)
         }
 
-        setSelectedFiles(prev => [...prev, ...validFiles])
+        // 只添加有效的文件
+        if (validFiles.length > 0) {
+            setSelectedFiles(prev => [...prev, ...validFiles])
+        }
+        
         // 清空input，允许重复选择同一文件
         if (fileInputRef.current) {
             fileInputRef.current.value = ''

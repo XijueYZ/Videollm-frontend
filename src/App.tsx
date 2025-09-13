@@ -289,30 +289,47 @@ const App: React.FC = () => {
   }
 
   // 统一的发送消息方法
-  const sendMessage = (content: string, files: File[] = [], type: SidebarKey, otherParams: Record<string, any> | undefined = {}) => {
-
+  const sendMessage = async (content: string, files: File[] = [], type: SidebarKey, otherParams: Record<string, any> | undefined = {}) => {
     // 添加用户消息
     const displayContent = content
-
     addMessage({
       content: displayContent,
-      files: files,
       isUser: true,
     })
 
     if (socketRef.current && isConnected) {
       try {
-
         if (files.length > 0) {
-          const videoFiles = []
-          const imageFiles = []
-          for (const file of files) {
-            if (file.type.startsWith('image/')) {
-              imageFiles.push(file)
-            } else if (file.type.startsWith('video/')) {
-              videoFiles.push(file)
-            }
-          }
+          // 将文件转换为base64或ArrayBuffer
+          const processedFiles = await Promise.all(
+            files.map(async (file) => {
+              return new Promise((resolve, reject) => {
+                const reader = new FileReader()
+                
+                reader.onload = () => {
+                  resolve({
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    data: reader.result, // base64 string
+                  })
+                }
+                
+                reader.onerror = () => {
+                  reject(new Error(`读取文件失败: ${file.name}`))
+                }
+                
+                // 使用readAsDataURL获取base64，或者readAsArrayBuffer获取二进制数据
+                reader.readAsDataURL(file)
+              })
+            })
+          )
+
+          // 分别处理图片和视频
+          const imageFiles = processedFiles.filter((file: any) => typeof file.type === 'string' && file.type.startsWith('image/'))
+          const videoFiles = processedFiles.filter((file: any) => typeof file.type === 'string' && file.type.startsWith('video/'))
+
+          console.log('发送文件数据:', { imageFiles: imageFiles.length, videoFiles: videoFiles.length })
           socketRef.current.emit('send_data', {
             images: imageFiles,
             videos: videoFiles,
