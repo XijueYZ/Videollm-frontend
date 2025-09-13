@@ -39,6 +39,12 @@ const VideoStream: React.FC<VideoStreamProps> = ({ className }) => {
         isVideoStreamingRef.current = isVideoStreaming
     }, [isVideoStreaming])
 
+    useEffect(() => {
+        return () => {
+            stopStream();
+        }
+    }, [])
+
     const formatDuration = useCallback((seconds: number): string => {
         const hours = Math.floor(seconds / 3600)
         const minutes = Math.floor((seconds % 3600) / 60)
