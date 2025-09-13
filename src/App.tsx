@@ -301,25 +301,31 @@ const App: React.FC = () => {
     if (socketRef.current && isConnected) {
       try {
         if (files.length > 0) {
-          // 将文件转换为ArrayBuffer（更高效）
-          const processedFiles = await Promise.all(
-            files.map(async (file) => {
+          const imageFiles = files.filter(file => file.type.startsWith('image/'))
+          const videoFiles = files.filter(file => file.type.startsWith('video/'))
+          
+          // 处理视频文件 - 转换为ArrayBuffer或base64
+          const processedVideoFiles = await Promise.all(
+            videoFiles.map(async (file) => {
               const arrayBuffer = await file.arrayBuffer()
               return {
                 name: file.name,
                 type: file.type,
                 size: file.size,
-                data: arrayBuffer, // 使用ArrayBuffer而不是base64
+                data: arrayBuffer, // 或者使用base64: await fileToBase64(file)
               }
             })
           )
 
-          const imageFiles = processedFiles.filter(file => file.type.startsWith('image/'))
-          const videoFiles = processedFiles.filter(file => file.type.startsWith('video/'))
-
+          console.log('发送文件:', { 
+            images: imageFiles.length, 
+            videos: processedVideoFiles.length,
+            totalSize: files.reduce((sum, file) => sum + file.size, 0)
+          })
+          
           socketRef.current.emit('send_data', {
-            images: imageFiles,
-            videos: videoFiles,
+            images: imageFiles, // 直接发送File对象
+            videos: processedVideoFiles, // 发送处理后的数据
             message: content,
             type: type,
             params: otherParams
