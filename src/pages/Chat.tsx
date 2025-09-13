@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { webSocketStore } from '@/WebSocketStore'
 
 const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapseSettings: boolean) => void, isChatOutputting: boolean }) => {
     const { collapseSettings, setCollapseSettings, isChatOutputting } = props
@@ -54,7 +55,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                 max_new_tokens: outputLength,
                 repetition_penalty: repetitionPenalty,
             },
-            thinking_mode: thinkingMode,
+            thinking_mode: thinkingMode ? 'deep_thinking' : 'no_thinking',
             system_prompt_type: hasVideo ? 'video' : 'text_image'
         })
         setInputValue('')
@@ -110,7 +111,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     }
 
     return (
-        <div className="flex flex-row">
+        <div className="flex flex-row h-full flex-1"  style={{ height: 'calc(100% - 29px)'}}>
             <div className="flex flex-col h-full overflow-hidden bg-background flex-1" >
 
                 {/* 消息区域 */}
@@ -302,7 +303,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                         }}
                                         min="0"
                                         max="2"
-                                        step="0.05"
+                                        step="0.01"
                                         className="w-[80px] p-[6px] h-[24px] text-center text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                                     />
                                 </div>
@@ -354,7 +355,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                             <div className="text-xs text-left text-gray-400 mb-4">Thinking</div>
                             <div className="flex flex-row justify-between space-y-1.5">
                                 <Label htmlFor="mode">Thinking Mode</Label>
-                                <Switch id="thinking-mode" checked={thinkingMode} onCheckedChange={setThinkingMode} />
+                                <Switch id="thinking-mode" checked={thinkingMode} onCheckedChange={setThinkingMode} disabled={webSocketStore.getSnapshot().length > 0} />
                             </div>
                             <Separator className='mt-2 mb-6' />
                             <div className="text-xs text-left text-gray-400 mb-4">Advanced settings</div>
