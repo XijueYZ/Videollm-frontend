@@ -20,3 +20,11 @@ type Message = {
     id: string;
     end?: boolean;
 }
+
+type VideoDataType = {
+    name: string;
+    type: string;
+    size: number;
+    path: string;
+    file: File;
+}

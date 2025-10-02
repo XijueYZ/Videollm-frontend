@@ -20,7 +20,7 @@ const pathname = window.location.pathname
 console.log('当前url的pathname:', pathname)
 // 去掉最后两个/之间的内容
 
-const path = pathname.split('/').slice(0, -2).join('/')
+export const path = pathname.split('/').slice(0, -2).join('/')
 console.log('当前url的path:', path)
 // 拼接socketUrl
 const socketPath = path + '/5000/socket.io'
@@ -148,6 +148,9 @@ const App: React.FC = () => {
         if (modelIdRef.current && data.token) {
           const currentMessages = webSocketStore.getSnapshot()
           const lastMessage = currentMessages?.length > 0 ? currentMessages?.[currentMessages?.length - 1] : undefined;
+          // 如果现在还没有任何消息（用户也没有发），不接收token
+          if (currentMessages?.length === 0) return;
+          if (data.token === "<|eot_id|>") return;
           // 收到...
           if (data.token === '<|...|>') {
             // 上一条后端返回的
@@ -291,7 +294,7 @@ const App: React.FC = () => {
   // 统一的发送消息方法
   const sendMessage = (
     content: string,
-    files: (File | { name: string, type: string, size: number, path: string })[] = [],
+    files: (File | VideoDataType)[] = [],
     type: SidebarKey,
     otherParams: Record<string, any> | undefined = {}
   ) => {
@@ -299,6 +302,7 @@ const App: React.FC = () => {
     const displayContent = content
     addMessage({
       content: displayContent,
+      files: files.map((item) => item.type.startsWith('video/') ? (item as VideoDataType)?.file : item as File),
       isUser: true,
     })
 
@@ -354,8 +358,10 @@ const App: React.FC = () => {
 
           <div className="h-screen w-full pt-2 pl-4 pr-4 pb-0 flex flex-col">
             <div className="flex flex-row items-center justify-between flex-0 align-middle">
-              <SidebarTrigger />
-              <div className="font-bold">{activeKey === SidebarKey.Chat ? "Chat Prompt" : "Stream realtime"}</div>
+              <div className="flex flex-row items-center">
+                <SidebarTrigger />
+                <div className="font-bold">{activeKey === SidebarKey.Chat ? "Chat Prompt" : "Stream realtime"}</div>
+              </div>
               <div className="flex flex-row items-center justify-center">
                 <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
                   {isConnected ? (

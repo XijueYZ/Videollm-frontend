@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FilePreview } from '@/components/ui/videoPreview'
 import { webSocketStore } from '@/WebSocketStore'
+import { path } from '../App'
 
 const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapseSettings: boolean) => void, isChatOutputting: boolean }) => {
     const { collapseSettings, setCollapseSettings, isChatOutputting } = props
@@ -21,7 +22,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
     const [topP, setTopP] = useState(0.95)
     const [temperature, setTemperature] = useState(1)
-    const [topK, setTopK] = useState(1.0)
+    const [topK, setTopK] = useState(50)
     const [videoFps, setVideoFps] = useState(1.0)
     const [videoMinLen, setVideoMinLen] = useState(8)
     const [videoMaxLen, setVideoMaxLen] = useState(256)
@@ -53,7 +54,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
             }
 
             // 获取当前域名，构建上传URL
-            const baseUrl = window.location.origin
+            const baseUrl = path + '/5000'
             const uploadUrl = `${baseUrl}/api/upload-video`
 
             console.log('开始上传视频:', {
@@ -64,7 +65,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
 
             const response = await fetch(uploadUrl, {
                 method: 'POST',
-                body: formData,
+                body: formData
             })
 
             if (response.ok) {
@@ -99,6 +100,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                     name: file.name,
                     type: file.type,
                     size: file.size,
+                    file: file,
                 }
             }
             return file
@@ -179,7 +181,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
 
             // 上传视频文件
             for (const videoFile of videoFiles) {
-                const fileKey = `${videoFile.name}_${videoFile.size}_${Date.now()}`
+                const fileKey = videoFile.name
 
                 // 标记为正在上传
                 setUploadingFiles(prev => new Set([...prev, fileKey]))
@@ -329,7 +331,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
 
                 {/* 输入区域 */}
                 <div className="p-4 flex-shrink-0">
-                    <div className="relative flex items-end gap-2 bg-muted/30 rounded-2xl p-2">
+                    <div className="relative flex items-end gap-2 bg-transparent rounded-2xl p-2">
                         <div className="flex-1 relative">
                             <Textarea
                                 ref={inputRef}
@@ -337,8 +339,11 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "输入消息..." : "等待连接..."}
-                                className="min-h-[48px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20"
-                                disabled={!isConnected}
+                                className="min-h-[48px] max-h-32 resize-none border-1 border-[#cccccc6e] bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20"
+                                // disabled={!isConnected}
+                                style={{
+                                    boxShadow: '2px 1px 1px #cccccc91'
+                                }}
                             />
                             {/* 右侧按钮组 */}
                             <div className="absolute right-2 bottom-2 flex items-center gap-1">
@@ -346,7 +351,6 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     variant="outline"
                                     size="sm"
                                     onClick={() => fileInputRef.current?.click()}
-                                    // TODO:
                                     // disabled={!isConnected}
                                     className="h-8 w-8 p-0 rounded-full border-muted-foreground/20 hover:bg-muted hover:border-muted-foreground/30"
                                 >
@@ -355,7 +359,6 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 {!isChatOutputting ? <Button
                                     variant="outline"
                                     onClick={handleSendMessage}
-                                    // TODO:
                                     // disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
                                     size="sm"
                                     className="h-8 w-8 p-0 rounded-full border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:border-muted-foreground/10"
@@ -401,7 +404,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                         <Card className='mt-2 mb-4 p-2' style={{ textAlign: 'left', alignItems: 'flex-start', borderRadius: '8px' }}>
                             <CardContent className='w-full text-left p-2'>
                                 <Label htmlFor='moss-videollm' className='pb-2'>MOSS-Videollm</Label>
-                                <CardDescription>description</CardDescription>
+                                <Label htmlFor='moss-videollm-description' className='text-xs text-muted-foreground'>Unlock intelligent visual experiences with offline and real-time video analysis.</Label>
                             </CardContent>
                         </Card>
                         <form>
@@ -495,6 +498,17 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     }} />
                                 </div>
                             </div>
+                            <div className="grid w-full items-center gap-4 mb-4">
+                                <div className="flex flex-row justify-between items-center">
+                                    <Label htmlFor="top-k">Top K</Label>
+                                    <Input id="output-length" className="w-[120px] h-[24px]" value={topK} onChange={(e) => {
+                                        const value = parseFloat(e.target.value)
+                                        if (!isNaN(value)) {
+                                            setTopK(value)
+                                        }
+                                    }} />
+                                </div>
+                            </div>
                             <div className="flex flex-col space-y-1.5 mb-2">
                                 <Label htmlFor="top-p">Top P</Label>
                                 <div className="flex items-center justify-between space-x-2">
@@ -524,42 +538,31 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 </div>
                             </div>
                             <div className="flex flex-col space-y-1.5 mb-6">
-                                <Label htmlFor="top-k">Top K</Label>
+                                <Label htmlFor="setRepetition-penalty">Repetition Penalty</Label>
                                 <div className="flex items-center justify-between space-x-2">
                                     <Slider
-                                        value={[topK]}
-                                        onValueChange={(value) => setTopK(value[0])}
-                                        max={1}
+                                        value={[repetitionPenalty]}
+                                        onValueChange={(value) => setRepetitionPenalty(value[0])}
+                                        max={2}
                                         min={0}
-                                        step={0.05}
+                                        step={0.1}
                                         className="w-[180px]"
                                     />
                                     <Input
-                                        id="top-k"
+                                        id="setRepetition-penalty"
                                         type="number"
-                                        value={topK}
+                                        value={repetitionPenalty}
                                         onChange={(e) => {
                                             const value = parseFloat(e.target.value)
-                                            if (!isNaN(value) && value >= 0 && value <= 1) {
-                                                setTopK(value)
+                                            if (!isNaN(value) && value >= 0 && value <= 2) {
+                                                setRepetitionPenalty(value)
                                             }
                                         }}
                                         min="0"
-                                        max="1"
+                                        max="2"
                                         step="0.01"
                                         className="w-[80px] h-[24px] p-[6px] text-center text-xs [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
                                     />
-                                </div>
-                            </div>
-                            <div className="grid w-full items-center gap-4 mb-4">
-                                <div className="flex flex-row justify-between items-center">
-                                    <Label htmlFor="top-p">Repetition Penalty</Label>
-                                    <Input id="output-length" className="w-[120px] h-[24px]" value={repetitionPenalty} onChange={(e) => {
-                                        const value = parseFloat(e.target.value)
-                                        if (!isNaN(value)) {
-                                            setRepetitionPenalty(value)
-                                        }
-                                    }} />
                                 </div>
                             </div>
                         </form>
