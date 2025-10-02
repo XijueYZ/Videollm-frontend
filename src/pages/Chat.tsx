@@ -340,7 +340,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "输入消息..." : "等待连接..."}
                                 className="min-h-[48px] max-h-32 resize-none border-1 border-[#cccccc6e] bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20"
-                                // disabled={!isConnected}
+                                disabled={!isConnected}
                                 style={{
                                     boxShadow: '2px 1px 1px #cccccc91'
                                 }}
@@ -351,7 +351,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     variant="outline"
                                     size="sm"
                                     onClick={() => fileInputRef.current?.click()}
-                                    // disabled={!isConnected}
+                                    disabled={!isConnected}
                                     className="h-8 w-8 p-0 rounded-full border-muted-foreground/20 hover:bg-muted hover:border-muted-foreground/30"
                                 >
                                     <Paperclip className="h-4 w-4" />
@@ -359,7 +359,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 {!isChatOutputting ? <Button
                                     variant="outline"
                                     onClick={handleSendMessage}
-                                    // disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
+                                    disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
                                     size="sm"
                                     className="h-8 w-8 p-0 rounded-full border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:border-muted-foreground/10"
                                 >
