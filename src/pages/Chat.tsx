@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useContext } from 'react'
-import { Send, Bot, User, Paperclip, X, Pause, Loader2 } from 'lucide-react'
+import { Send, Bot, User, Paperclip, X, Pause } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FilePreview } from '@/components/ui/videoPreview'
+import { FilePreview, HistoryFilePreview } from '@/components/ui/videoPreview'
 import { webSocketStore } from '@/WebSocketStore'
 import { path } from '../App'
 
@@ -291,19 +291,50 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                                 <CardContent className="p-0">
                                                     {message.loading ?
                                                         <div className="flex items-center justify-center">
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            <div className="flex space-x-1 p-1">
+                                                                <div className="w-1 h-1 bg-muted-foreground rounded-full" style={{
+                                                                    animation: 'loading-dots 1.4s ease-in-out infinite',
+                                                                    animationDelay: '0ms'
+                                                                }}></div>
+                                                                <div className="w-1 h-1 bg-muted-foreground rounded-full" style={{
+                                                                    animation: 'loading-dots 1.4s ease-in-out infinite',
+                                                                    animationDelay: '200ms'
+                                                                }}></div>
+                                                                <div className="w-1 h-1 bg-muted-foreground rounded-full" style={{
+                                                                    animation: 'loading-dots 1.4s ease-in-out infinite',
+                                                                    animationDelay: '400ms'
+                                                                }}></div>
+                                                            </div>
                                                         </div>
                                                         :
                                                         <div className="whitespace-pre-wrap break-all text-sm">
                                                             {message.content}
                                                         </div>
                                                     }
+                                                    {/* 处理当前消息的文件 */}
                                                     {message?.files?.map((file, index) => (
                                                         <FilePreview
                                                             key={index}
                                                             file={file}
                                                         />
                                                     ))}
+                                                    {/* 处理历史消息的文件 */}
+                                                    {message?.history_files && (
+                                                        <>
+                                                            {message.history_files.images?.map((img, index) => (
+                                                                <HistoryFilePreview
+                                                                    key={`img-${index}`}
+                                                                    fileInfo={img}
+                                                                />
+                                                            ))}
+                                                            {message.history_files.videos?.map((vid, index) => (
+                                                                <HistoryFilePreview
+                                                                    key={`vid-${index}`}
+                                                                    fileInfo={vid}
+                                                                />
+                                                            ))}
+                                                        </>
+                                                    )}
                                                 </CardContent>
                                             </Card>
 

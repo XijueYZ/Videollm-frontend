@@ -161,7 +161,7 @@ const App: React.FC = () => {
             isUser: msg.type === 'user',
             isError: msg.isError,
             timestamp: msg.timestamp,
-            files: msg.files ? JSON.parse(msg.files) : undefined,
+            history_files: msg.files ? JSON.parse(msg.files) : undefined,
           })
         })
         webSocketStore.addMessage({
@@ -468,7 +468,7 @@ const App: React.FC = () => {
     // 检查是否有当前对话
     if (!currentConversationId) {
       // 创建对话
-      conversationId = await createNewConversation(content.slice(0, 10))
+      conversationId = await createNewConversation(content.slice(0, 10) || (files.length > 0 ? '[文件消息]' : '新对话'))
     }
     if (!conversationId) {
       toast("对话创建异常", {

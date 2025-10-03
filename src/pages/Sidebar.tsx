@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useActiveKey, webSocketStore } from "@/WebSocketStore"
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
-import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react"
+import { ChevronDown, ChevronRight, Trash2 } from "lucide-react"
 import type { SidebarKey } from "@/utils"
 
 type Props = {
@@ -10,7 +10,7 @@ type Props = {
 
 const LeftSideBar: React.FC<Props> = ({ items }) => {
   const activeKey = useActiveKey()
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['chat']))
   
   const toggleExpanded = (key: string) => {
     setExpandedItems(prev => {

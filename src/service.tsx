@@ -1,5 +1,7 @@
-const httpUrl = 'http://localhost:5000'
-// const apiUrl = path + '/5000'
+import path from "path"
+
+// const httpUrl = 'http://localhost:5000'  
+export const httpUrl = path + '/5000'
 
 export const apiCall = async (url: string, options: RequestInit = {}) => {
   try {

@@ -17,6 +17,18 @@ type Conversation = {
 type Message = {
     content?: string;
     files?: File[];
+    history_files?: {
+        images?: Array<{
+            path: string;
+            name: string;
+            url?: string;
+        }>;
+        videos?: Array<{
+            path: string;
+            name: string;
+            url?: string;
+        }>;
+    };
     isUser?: boolean;
     isError?: boolean;
     timestamp?: number;

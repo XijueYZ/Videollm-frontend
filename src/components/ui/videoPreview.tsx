@@ -2,6 +2,109 @@ import { Video, X, Image } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "./button"
 import { formatFileSize } from "@/utils"
+import { httpUrl } from "@/service"
+
+// 历史文件预览组件
+export const HistoryFilePreview = ({ 
+    fileInfo 
+}: { 
+    fileInfo: {
+        path: string;
+        name: string;
+        url?: string;
+    }
+}) => {
+    const [isPlaying, setIsPlaying] = useState(false)
+    const videoRef = useRef<HTMLVideoElement>(null)
+    
+    // 将绝对路径转换为HTTP可访问的URL
+    const fileName = fileInfo.path.split('temp_uploads/').pop() || fileInfo.name
+
+    // const fileUrl = `http://localhost:5000/temp_uploads/${fileName}`
+    const fileUrl = `${httpUrl}/temp_uploads/${fileName}`
+    
+    // 从文件路径判断文件类型
+    const isImage = fileInfo.path.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp)$/)
+    const isVideo = fileInfo.path.toLowerCase().match(/\.(mp4|webm|ogg|avi|mov)$/)
+    
+    // 调试信息
+    console.log('HistoryFilePreview Debug:', {
+        fileInfo,
+        fileUrl,
+        isImage: !!isImage,
+        isVideo: !!isVideo
+    })
+    
+    const handleVideoClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (videoRef.current) {
+            if (isPlaying) {
+                videoRef.current.pause()
+            } else {
+                videoRef.current.play()
+            }
+        }
+    }
+
+    const handleVideoPlay = () => {
+        setIsPlaying(true)
+    }
+
+    const handleVideoPause = () => {
+        setIsPlaying(false)
+    }
+
+    return (
+        <div className="relative bg-background rounded-lg border overflow-hidden">
+            <div className="relative">
+                {isImage && (
+                    <img
+                        src={fileUrl}
+                        alt={fileInfo.name}
+                        className="w-32 h-32 object-cover"
+                        onError={() => console.error('图片加载失败:', fileUrl)}
+                    />
+                )}
+
+                {isVideo && (
+                    <div className="relative w-32 h-32">
+                        <video
+                            ref={videoRef}
+                            src={fileUrl}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={handleVideoClick}
+                            onPlay={handleVideoPlay}
+                            onPause={handleVideoPause}
+                            muted
+                            playsInline
+                            preload="metadata"
+                        />
+                        
+                        {/* 播放/暂停按钮覆盖层 */}
+                        {!isPlaying && (
+                            <div 
+                                className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer"
+                                onClick={handleVideoClick}
+                            >
+                                <div className="bg-white/90 rounded-full p-3 hover:bg-white transition-colors">
+                                    <svg className="h-6 w-6 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* 视频标识 */}
+                        <div className="absolute top-1 left-1 bg-black/70 text-white text-xs px-1 rounded">
+                            <Video className="h-3 w-3 inline mr-1" />
+                            视频
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
 
 // 添加文件预览组件
 export const FilePreview = ({ file, onRemove, upLoading }: { file: File, onRemove?: () => void, upLoading?: boolean }) => {
