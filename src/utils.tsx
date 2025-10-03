@@ -44,6 +44,7 @@ export const ChatContext = createContext<{
     setIsVideoStreaming: Dispatch<SetStateAction<boolean>>;
     videoStreamType: string | null;
     setVideoStreamType: Dispatch<SetStateAction<string | null>>;
+    isAllocatingModel: boolean;
 }>({
     socketRef: { current: null },
     isConnected: false,
@@ -54,6 +55,7 @@ export const ChatContext = createContext<{
     setIsVideoStreaming: () => { },
     videoStreamType: null,
     setVideoStreamType: () => { },
+    isAllocatingModel: false,
 });
 
 export const qualityConfig = {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { ChatContext, defaultItems, SidebarKey } from "./utils"
 import { io, Socket } from 'socket.io-client'
 import { v4 as uuidv4 } from 'uuid'
@@ -6,15 +6,18 @@ import Chat from "./pages/Chat"
 import Stream from "./pages/Stream"
 import { SidebarProvider, SidebarTrigger } from "./components/ui/sidebar"
 import { Badge } from "./components/ui/badge"
-import { Settings, Wifi, WifiOff } from "lucide-react"
+import { Settings, Wifi, WifiOff, History, Plus, Trash2 } from "lucide-react"
 import { Separator } from "./components/ui/separator"
 import LeftSideBar from "./pages/Sidebar"
 import './App.css'
 import useWebSocketData, { useActiveKey, webSocketStore } from "./WebSocketStore"
 import { Button } from "./components/ui/button"
+import { apiCall, apiCallWithAbort } from "./service"
+import { toast } from "sonner"
 
 // TODO: 使用当前域名
-const socketUrl = '/' // 空字符串会使用当前域名
+// const socketUrl = '/' // 空字符串会使用当前域名
+const socketUrl = 'ws://localhost:5000'
 // 获得当前url的pathname
 const pathname = window.location.pathname
 console.log('当前url的pathname:', pathname)
@@ -23,8 +26,8 @@ console.log('当前url的pathname:', pathname)
 export const path = pathname.split('/').slice(0, -2).join('/')
 console.log('当前url的path:', path)
 // 拼接socketUrl
-const socketPath = path + '/5000/socket.io'
-// const socketPath = '/';
+// TODO:
+// const socketPath = path + '/5000/socket.io'
 
 const App: React.FC = () => {
   // 从Store获取activeKey，而不是本地state
@@ -36,12 +39,17 @@ const App: React.FC = () => {
   const [collapseSettings, setCollapseSettings] = useState(false)
   // chat场景，正在输出
   const [isChatOutputting, setIsChatOutputting] = useState(false)
+  const [isAllocatingModel, setIsAllocatingModel] = useState(false)
+
+  // 对话历史相关状态
+  const [currentConversationId, setCurrentConversationId] = useState<string>()
+  const [conversations, setConversations] = useState<any[]>([])
 
   const messages = useWebSocketData()
   const modelIdRef = useRef(modelId)
   const socketRef = useRef<Socket | null>(null)
-  const isAssigningRef = useRef<boolean>(false);
   const activeKeyRef = useRef(activeKey)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     modelIdRef.current = modelId
@@ -53,9 +61,16 @@ const App: React.FC = () => {
 
   // 切换页面时，清空消息
   useEffect(() => {
-    setIsVideoStreaming(false)
-    setVideoStreamType(null)
+    setIsVideoStreaming(false);
+    setVideoStreamType(null);
+    clearConversation();
   }, [activeKey])
+
+  useEffect(() => {
+    if (isConnected) {
+      loadConversations()
+    }
+  }, [isConnected])
 
 
   useEffect(() => {
@@ -66,15 +81,6 @@ const App: React.FC = () => {
       }
     }
   }, [])
-
-  useEffect(() => {
-    console.log(activeKey)
-    if (isConnected) {
-      socketRef?.current?.emit('request_model', {
-        activeKey: activeKey,
-      })
-    }
-  }, [activeKey, isConnected])
 
   // 消息管理
   const addMessage = (message: Partial<Message>) => {
@@ -88,12 +94,143 @@ const App: React.FC = () => {
     webSocketStore.addMessage(newMessage)
   }
 
+  // 加载对话列表
+  const loadConversations = async () => {
+    try {
+      const data = await apiCall(`/api/conversations`)
+      if (data.success) {
+        setConversations(data.conversations)
+      }
+    } catch (error) {
+      console.error('加载对话列表失败:', error)
+    }
+  }
+
+  // 新建对话界面
+  const clearConversation = async () => {
+    // 释放模型
+    if (modelId) {
+      await apiCall('/api/release-model', {
+        method: 'POST',
+        body: JSON.stringify({
+          sid: socketRef.current?.id
+        })
+      })
+    } else if (abortControllerRef.current) {
+      cancelModelAllocation();
+    }
+    setModelId(null);
+    setCurrentConversationId(undefined)
+    webSocketStore.clearMessages()
+  }
+
+  // 创建新对话
+  const createNewConversation = async (title: string) => {
+    try {
+      const data = await apiCall('/api/conversations', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: title,
+          type: activeKey
+        })
+      })
+
+      if (data.success) {
+        setCurrentConversationId(data.conversationId)
+        await loadConversations() // 重新加载对话列表
+        console.log('新对话创建成功:', data.conversationId)
+        return data.conversationId
+      }
+    } catch (error) {
+      console.error('创建对话失败:', error)
+    }
+  }
+
+  // 加载指定对话
+  const loadConversation = async (conversationId: string) => {
+    try {
+      const data = await apiCall(`/api/conversations/${conversationId}/messages`)
+      if (data.success) {
+        setCurrentConversationId(conversationId)
+        // 清空当前消息并加载历史消息
+        webSocketStore.clearMessages()
+        data.messages.forEach((msg: any) => {
+          webSocketStore.addMessage({
+            id: msg.id,
+            content: msg.content,
+            isUser: msg.type === 'user',
+            isError: msg.isError,
+            timestamp: msg.timestamp,
+            files: msg.files ? JSON.parse(msg.files) : undefined,
+          })
+        })
+        webSocketStore.addMessage({
+          historySeperator: true,
+          id: uuidv4(),
+        })
+      }
+    } catch (error) {
+      console.error('加载对话失败:', error)
+    }
+  }
+
+  // 删除对话
+  const deleteConversation = async (conversationId: string) => {
+    console.log(conversationId);
+    try {
+      await apiCall(`/api/conversations/${conversationId}`, {
+        method: 'DELETE'
+      })
+
+      // 如果删除的是当前对话，清空当前对话
+      if (currentConversationId === conversationId) {
+        clearConversation();
+      }
+
+      await loadConversations() // 重新加载对话列表
+      console.log('对话删除成功:', conversationId)
+    } catch (error) {
+      console.error('删除对话失败:', error)
+    }
+  }
+
+  // 新增对话内容
+  const updateConversationContent = async (conversationId: string, message: Pick<Message, 'content' | 'isUser' | 'isError'>) => {
+    try {
+      await apiCall(`/api/conversations/${conversationId}/content`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          content: message.content,
+          is_user: message.isUser,
+          is_error: message.isError,
+        })
+      })
+    }
+    catch (error) {
+      console.error('更新对话内容失败:', error)
+    }
+  }
+
+  // 必须有Message里面的几个关键字
+  const recordDialogue = (message: Pick<Message, 'content' | 'isUser' | 'isError'>, conversationId?: string) => {
+    const id = conversationId || currentConversationId;
+    if (!id) return;
+    // 把数据发给后端
+    try {
+      updateConversationContent(id, message)
+    }
+    catch (error) {
+      console.error('更新对话内容失败:', error)
+    }
+  }
+
+
   const initSocket = () => {
     if (socketRef.current) {
       socketRef.current.disconnect()
     }
     socketRef.current = io(socketUrl, {
-      path: socketPath,
+      // path: socketPath,
       transports: ['websocket', 'polling'], // 添加备选传输方式
       timeout: 10000,
       forceNew: true,
@@ -106,44 +243,11 @@ const App: React.FC = () => {
       setIsConnected(true)
     })
 
-    // 模型分配中
-    socketRef.current.on('model_assigning', () => {
-      isAssigningRef.current = true
-    })
-
-    // 模型分配成功
-    socketRef.current.on('model_assigned', (data) => {
-      console.log('✅ 模型分配成功:', data)
-      setModelId(data.model_id)
-      isAssigningRef.current = false
-
-      webSocketStore.setIsSwitchingType(false);
-    })
-
-    // 模型分配失败
-    socketRef.current.on('model_assign_failed', (data) => {
-      console.log('❌ 模型分配失败:', data)
-      isAssigningRef.current = false
-      setModelId(null);
-    })
-
-    // 有模型空出来了
-    socketRef.current.on('has_model_released', () => {
-      if (!modelIdRef.current && !isAssigningRef.current) {
-        socketRef.current?.emit('request_model', {
-          activeKey: activeKey,
-        })
-      }
-    })
-
     // 流式token响应（如果后端支持）
     socketRef.current.on('new_token', (data) => {
-      // 如果正在切换模型，则不处理中间输出的这些token
-      if (webSocketStore.getIsSwitchingType()) {
-        return;
-      }
       if (activeKeyRef.current === SidebarKey.Stream) {
         console.log('[实时]收到新token:', data)
+
         // 这里可以实现流式显示
         if (modelIdRef.current && data.token) {
           const currentMessages = webSocketStore.getSnapshot()
@@ -155,14 +259,19 @@ const App: React.FC = () => {
           if (data.token === '<|...|>') {
             // 上一条后端返回的
             if (lastMessage && !lastMessage.isUser) {
+              recordDialogue({
+                ...lastMessage,
+                content: lastMessage.content + '...',
+                isUser: false,
+              })
               // 收到...则结束这一条，并且加上...
-              webSocketStore.updateMessages((messages) =>
-                messages.map((message, index) => ({
-                  ...message,
-                  content: index === messages.length - 1 ? message.content + '...' : message.content,
-                  end: index === messages.length - 1 ? true : false,
-                  isUser: false,
-                }))
+              webSocketStore.updateLastMessage((message) =>
+              ({
+                ...message,
+                content: message.content + '...',
+                end: true,
+                isUser: false,
+              })
               )
             }
             // 上一条是用户信息则直接跳过
@@ -172,13 +281,12 @@ const App: React.FC = () => {
           if (data.token === '<|silence|>') {
             // 上一条后端返回的
             if (lastMessage && !lastMessage.isUser) {
-              webSocketStore.updateMessages((messages) =>
-                messages.map((message, index) => ({
-                  ...message,
-                  // 最后一条加上结束标识
-                  end: index === messages.length - 1 ? true : message.end
-                }))
-              )
+              recordDialogue(lastMessage)
+              webSocketStore.updateLastMessage((message) => ({
+                ...message,
+                // 最后一条加上结束标识
+                end: true
+              }))
             }
             // 上一条是用户信息则直接跳过
             return;
@@ -186,13 +294,11 @@ const App: React.FC = () => {
           // 直到收到<|round_start|>再开启token的接收
           console.log('当前messages:', currentMessages)
           if (data.token === '<|round_start|>') {
-            webSocketStore.updateMessages((messages) =>
-              messages.map((message, index) => ({
-                ...message,
-                // 上一条改成end=True，如果是用户的消息标识可以开始接收；如果是后端的消息标识这一条已经结束
-                end: index === messages.length - 1 ? true : message.end,
-              }))
-            )
+            webSocketStore.updateLastMessage((message) => ({
+              ...message,
+              // 上一条改成end=True，如果是用户的消息标识可以开始接收；如果是后端的消息标识这一条已经结束
+              end: true
+            }))
             return;
           }
           if (lastMessage && lastMessage.isUser) {
@@ -209,18 +315,24 @@ const App: React.FC = () => {
 
           } else {
             // 还没有数据，或上一条后端返回的已经结束，开启新的一条
-            if (!lastMessage || lastMessage.end) {
+            if (lastMessage && lastMessage.loading) {
+              webSocketStore.updateLastMessage((message) => ({
+                ...message,
+                content: data.token,
+                loading: false,
+              }))
+            } else if (!lastMessage || lastMessage.end) {
               addMessage({
                 content: data.token,
                 isUser: false,
               })
             } else {
               // 把这条token连接在message最后
-              webSocketStore.updateMessages((messages) =>
-                messages.map((message, index) => ({
-                  ...message,
-                  content: index === messages.length - 1 ? message.content + data.token : message.content,
-                }))
+              webSocketStore.updateLastMessage((message) =>
+              ({
+                ...message,
+                content: message.content + data.token,
+              })
               )
             }
           }
@@ -234,13 +346,16 @@ const App: React.FC = () => {
           if (data.token === "<|eot_id|>") return;
           // 如果收到round_end，代表后端输出完毕，用户可以继续输出
           if (data.token === '<|round_end|>') {
+            if (lastMessage) {
+              recordDialogue(lastMessage)
+            }
             setIsChatOutputting(false)
-            webSocketStore.updateMessages((messages) =>
-              messages.map((message, index) => ({
-                ...message,
-                // 上一条改成end=True，标识可以开始token的接收了
-                end: index === messages.length - 1 ? true : message.end,
-              }))
+            webSocketStore.updateLastMessage((message) =>
+            ({
+              ...message,
+              // 上一条改成end=True，标识可以开始token的接收了
+              end: true,
+            })
             )
             return;
           } else {
@@ -253,13 +368,19 @@ const App: React.FC = () => {
                 isUser: false,
               })
               return;
+            } else if (lastMessage?.loading) {
+              webSocketStore.updateLastMessage((message) => ({
+                ...message,
+                content: data.token,
+                loading: false,
+              }))
             } else {
               // 把这条token连接在message最后
-              webSocketStore.updateMessages((messages) =>
-                messages.map((message, index) => ({
-                  ...message,
-                  content: index === messages.length - 1 ? message.content + data.token : message.content,
-                }))
+              webSocketStore.updateLastMessage((message) =>
+              ({
+                ...message,
+                content: message.content + data.token,
+              })
               )
             }
           }
@@ -291,13 +412,79 @@ const App: React.FC = () => {
     })
   }
 
-  // 统一的发送消息方法
-  const sendMessage = (
+  // HTTP分配模型，允许中途取消
+  const allocateModel = async (conversationId: string) => {
+    try {
+      // 创建新的AbortController
+      const abortController = new AbortController()
+      abortControllerRef.current = abortController
+
+      const data = await apiCallWithAbort('/api/allocate-model', {
+        method: 'POST',
+        body: JSON.stringify({
+          conversationId: conversationId,
+          activeKey: activeKey,
+          sid: socketRef.current?.id
+        }),
+        signal: abortController.signal
+      })
+
+      if (data.success) {
+        setModelId(data.modelId)
+        console.log('模型分配成功:', data.modelId)
+        return true
+      } else {
+        return false
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === '请求已取消') {
+        console.log('模型分配请求已取消')
+        return false
+      }
+      console.error('分配模型失败:', error)
+      return false
+    } finally {
+      abortControllerRef.current = null
+    }
+  }
+
+  // 取消模型分配
+  const cancelModelAllocation = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      // 移除加载中的消息
+      webSocketStore.deleteLastMessage()
+    }
+  }
+
+  // 修改sendMessage函数，在发送消息前检查并分配模型
+  const sendMessage = async (
     content: string,
     files: (File | VideoDataType)[] = [],
     type: SidebarKey,
     otherParams: Record<string, any> | undefined = {}
   ) => {
+    let conversationId = currentConversationId
+    // 检查是否有当前对话
+    if (!currentConversationId) {
+      // 创建对话
+      conversationId = await createNewConversation(content.slice(0, 10))
+    }
+    if (!conversationId) {
+      toast("对话创建异常", {
+        description: "请刷新或创建新对话",
+      })
+      return;
+    }
+    // 如果上一条还没有end，则先保存一下上一条的结果
+    const currentMessages = webSocketStore.getSnapshot()
+    const lastMessage = currentMessages?.length > 0 ? currentMessages?.[currentMessages?.length - 1] : undefined;
+    if (lastMessage && !lastMessage.end && !lastMessage.loading) {
+      recordDialogue(lastMessage)
+    } else if (lastMessage?.loading) {
+      // 把上一条删了
+      webSocketStore.deleteLastMessage()
+    }
     // 添加用户消息
     const displayContent = content
     addMessage({
@@ -305,6 +492,30 @@ const App: React.FC = () => {
       files: files.map((item) => item.type.startsWith('video/') ? (item as VideoDataType)?.file : item as File),
       isUser: true,
     })
+
+    if (!modelId) {
+      addMessage({
+        loading: true,
+        isUser: false,
+      })
+      setIsAllocatingModel(true)
+      const success = await allocateModel(conversationId);
+      setIsAllocatingModel(false)
+      if (!success) {
+        webSocketStore.updateLastMessage((message) => ({
+          ...message,
+          loading: false,
+          content: '模型繁忙中，请稍后重试',
+        }))
+        // 记录一下这条消息
+        recordDialogue({
+          content: displayContent,
+          isUser: true,
+          isError: false
+        }, conversationId)
+        return;
+      }
+    }
 
     if (socketRef.current && isConnected) {
       try {
@@ -319,6 +530,7 @@ const App: React.FC = () => {
           })
 
           socketRef.current.emit('send_data', {
+            conversationId: conversationId, // 添加conversationId
             images: imageFiles, // 图片直接发送File对象
             videos: videoFiles, // 视频只发送路径信息
             message: content,
@@ -327,6 +539,7 @@ const App: React.FC = () => {
           })
         } else {
           socketRef.current.emit('send_data', {
+            conversationId: conversationId, // 添加conversationId
             message: content,
             type: type,
             params: otherParams
@@ -349,20 +562,42 @@ const App: React.FC = () => {
     }
   }
 
+  const sidebarItems = useMemo(() => defaultItems.map(item => ({
+    ...item,
+    conversations: conversations.filter(conv => conv.type === item.key),
+    onLoadConversation: loadConversation,
+    onDeleteConversation: deleteConversation,
+    onClearConversation: clearConversation,
+    currentConversationId: currentConversationId
+  })), [conversations, currentConversationId])
+
   // 占满除了SideBar的区域
   return <div className="h-screen w-full overflow-clip">
     <SidebarProvider>
-      <LeftSideBar items={defaultItems} />
+      <LeftSideBar items={sidebarItems} />
       <div className="flex-1 flex flex-col min-w-0">
-        <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType }}>
+        <ChatContext.Provider value={{ socketRef, isConnected, messages, addMessage, sendMessage, isVideoStreaming, setIsVideoStreaming, videoStreamType, setVideoStreamType, isAllocatingModel }}>
 
           <div className="h-screen w-full pt-2 pl-4 pr-4 pb-0 flex flex-col">
             <div className="flex flex-row items-center justify-between flex-0 align-middle">
               <div className="flex flex-row items-center">
                 <SidebarTrigger />
                 <div className="font-bold">{activeKey === SidebarKey.Chat ? "Chat Prompt" : "Stream realtime"}</div>
+                {currentConversationId && (
+                  <Badge variant="outline" className="ml-2">
+                    对话: {conversations.find(c => c.id === currentConversationId)?.title || '未知'}
+                  </Badge>
+                )}
               </div>
-              <div className="flex flex-row items-center justify-center">
+              <div className="flex flex-row items-center justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearConversation}
+                  className="h-[28px]"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
                 <Badge variant={isConnected ? "default" : "destructive"} className="justify-center">
                   {isConnected ? (
                     <>
@@ -384,6 +619,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <Separator />
+
             {activeKey === SidebarKey.Chat && <Chat collapseSettings={collapseSettings} setCollapseSettings={setCollapseSettings} isChatOutputting={isChatOutputting} />}
             {activeKey === SidebarKey.Stream && <Stream />}
           </div>

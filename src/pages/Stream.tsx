@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useContext } from 'react'
-import { Send, Bot, User } from 'lucide-react'
+import { Send, Bot, User, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import VideoStream from '@/pages/VideoStream'
 
 const Stream = () => {
-    const { socketRef, isConnected, messages, sendMessage } = useContext(ChatContext)
+    const { socketRef, isConnected, messages, sendMessage, isAllocatingModel } = useContext(ChatContext)
     const [inputValue, setInputValue] = useState('')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -74,14 +74,20 @@ const Stream = () => {
                                                 : 'bg-muted' + ' p-2 max-w-[100%] text-left'
                                         }>
                                             <CardContent className="p-0">
-                                                <div className="whitespace-pre-wrap break-all text-sm">
-                                                    {message.content}
-                                                </div>
+                                            {message.loading ?
+                                                    <div className="flex items-center justify-center">
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    </div>
+                                                    :
+                                                    <div className="whitespace-pre-wrap break-all text-sm">
+                                                        {message.content}
+                                                    </div>
+                                                }
                                             </CardContent>
                                         </Card>
 
                                         <div className={`text-xs text-muted-foreground mt-1 ${message.isUser ? 'text-right' : 'text-left'}`}>
-                                            {new Date(message.timestamp).toLocaleTimeString()}
+                                            {new Date(message.timestamp || 0).toLocaleTimeString()}
                                         </div>
                                     </div>
 
@@ -112,14 +118,14 @@ const Stream = () => {
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "输入消息..." : "等待连接..."}
                                 className="min-h-[48px] max-h-32 resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20"
-                                disabled={!isConnected}
+                                disabled={!isConnected || isAllocatingModel}
                             />
                             {/* 右侧按钮组 */}
                             <div className="absolute right-2 bottom-2 flex items-center gap-1">
                                 <Button
                                     variant="outline"
                                     onClick={handleSendMessage}
-                                    disabled={!inputValue.trim() || !isConnected}
+                                    disabled={!inputValue.trim() || !isConnected || isAllocatingModel}
                                     size="sm"
                                     className="h-8 w-8 p-0 rounded-full border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:border-muted-foreground/10"
                                 >

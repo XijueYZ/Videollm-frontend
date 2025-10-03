@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect, useContext } from 'react'
-import { Send, Bot, User, Paperclip, X, Pause } from 'lucide-react'
+import { Send, Bot, User, Paperclip, X, Pause, Loader2 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { ChatContext, formatFileSize, SidebarKey } from '@/utils'
-import { Card, CardContent, CardDescription } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -17,7 +17,7 @@ import { path } from '../App'
 
 const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapseSettings: boolean) => void, isChatOutputting: boolean }) => {
     const { collapseSettings, setCollapseSettings, isChatOutputting } = props
-    const { socketRef, isConnected, messages, sendMessage } = useContext(ChatContext)
+    const { socketRef, isConnected, messages, sendMessage, isAllocatingModel } = useContext(ChatContext)
     const [inputValue, setInputValue] = useState('')
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
     const [topP, setTopP] = useState(0.95)
@@ -127,7 +127,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
     }
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey && !isChatOutputting) {
             e.preventDefault()
             handleSendMessage()
         }
@@ -261,50 +261,65 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                     ) : (
                         <>
                             {messages.map((message) => (
-                                <div
-                                    key={message.id}
-                                    className={`flex gap-3 mb-4 ${message.isUser ? 'justify-end' : 'justify-start'}`}
-                                >
-                                    {!message.isUser && (
-                                        <Avatar>
-                                            <AvatarFallback className="bg-blue-100 dark:bg-blue-900">
-                                                <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    )}
-
-                                    <div className={`max-w-[70%] ${message.isUser ? 'order-first' : ''}`}>
-                                        <Card className={
-                                            message.isUser
-                                                ? 'bg-primary text-primary-foreground p-2  max-w-[100%] text-left'
-                                                : 'bg-muted' + ' p-2 max-w-[100%] text-left'
-                                        }>
-                                            <CardContent className="p-0">
-                                                <div className="whitespace-pre-wrap break-all text-sm">
-                                                    {message.content}
-                                                </div>
-                                                {message?.files?.map((file, index) => (
-                                                    <FilePreview
-                                                        key={index}
-                                                        file={file}
-                                                    />
-                                                ))}
-                                            </CardContent>
-                                        </Card>
-
-                                        <div className={`text-xs text-muted-foreground mt-1 ${message.isUser ? 'text-right' : 'text-left'}`}>
-                                            {new Date(message.timestamp).toLocaleTimeString()}
+                                message?.historySeperator ?
+                                    <div className='relative w-full my-4 px-4'>
+                                        <div className='absolute inset-0 flex items-center'>
+                                            <div className='w-full border-t border-gray-200'></div>
                                         </div>
-                                    </div>
+                                        <div className='relative flex justify-center text-sm'>
+                                            <span className='bg-white px-3 text-muted-foreground'>以上为历史消息</span>
+                                        </div>
+                                    </div> :
+                                    <div
+                                        key={message.id}
+                                        className={`flex gap-3 mb-4 ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        {!message.isUser && (
+                                            <Avatar>
+                                                <AvatarFallback className="bg-blue-100 dark:bg-blue-900">
+                                                    <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        )}
 
-                                    {message.isUser && (
-                                        <Avatar>
-                                            <AvatarFallback className="bg-muted">
-                                                <User className="h-4 w-4" />
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    )}
-                                </div>
+                                        <div className={`max-w-[70%] ${message.isUser ? 'order-first' : ''}`}>
+                                            <Card className={
+                                                message.isUser
+                                                    ? 'bg-primary text-primary-foreground p-2  max-w-[100%] text-left'
+                                                    : 'bg-muted' + ' p-2 max-w-[100%] text-left'
+                                            }>
+                                                <CardContent className="p-0">
+                                                    {message.loading ?
+                                                        <div className="flex items-center justify-center">
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        </div>
+                                                        :
+                                                        <div className="whitespace-pre-wrap break-all text-sm">
+                                                            {message.content}
+                                                        </div>
+                                                    }
+                                                    {message?.files?.map((file, index) => (
+                                                        <FilePreview
+                                                            key={index}
+                                                            file={file}
+                                                        />
+                                                    ))}
+                                                </CardContent>
+                                            </Card>
+
+                                            <div className={`text-xs text-muted-foreground mt-1 ${message.isUser ? 'text-right' : 'text-left'}`}>
+                                                {new Date(message.timestamp || 0).toLocaleTimeString()}
+                                            </div>
+                                        </div>
+
+                                        {message.isUser && (
+                                            <Avatar>
+                                                <AvatarFallback className="bg-muted">
+                                                    <User className="h-4 w-4" />
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        )}
+                                    </div>
                             ))}
                         </>
                     )}
@@ -340,7 +355,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 onKeyPress={handleKeyPress}
                                 placeholder={isConnected ? "输入消息..." : "等待连接..."}
                                 className="min-h-[48px] max-h-32 resize-none border-1 border-[#cccccc6e] bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 pr-20"
-                                disabled={!isConnected}
+                                disabled={!isConnected || isAllocatingModel}
                                 style={{
                                     boxShadow: '2px 1px 1px #cccccc91'
                                 }}
@@ -351,7 +366,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                     variant="outline"
                                     size="sm"
                                     onClick={() => fileInputRef.current?.click()}
-                                    disabled={!isConnected}
+                                    disabled={!isConnected || isAllocatingModel}
                                     className="h-8 w-8 p-0 rounded-full border-muted-foreground/20 hover:bg-muted hover:border-muted-foreground/30"
                                 >
                                     <Paperclip className="h-4 w-4" />
@@ -359,7 +374,7 @@ const Chat = (props: { collapseSettings: boolean, setCollapseSettings: (collapse
                                 {!isChatOutputting ? <Button
                                     variant="outline"
                                     onClick={handleSendMessage}
-                                    disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected}
+                                    disabled={(!inputValue.trim() && selectedFiles.length === 0) || !isConnected || isAllocatingModel}
                                     size="sm"
                                     className="h-8 w-8 p-0 rounded-full border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:border-muted-foreground/10"
                                 >

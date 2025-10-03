@@ -104,6 +104,15 @@ class WebSocketStore {
     this.listeners.forEach(listener => listener());
   }
 
+  // 删除最后一条消息
+  deleteLastMessage() {
+    const currentData = this.getDataByType(this.activeKey);
+    if (currentData.length > 0) {
+      this.setDataByType(this.activeKey, currentData.slice(0, -1));
+    }
+    this.listeners.forEach(listener => listener());
+  }
+
   // 获取指定类型的数据（公开方法）
   getDataByKey(key: SidebarKey): Message[] {
     return this.getDataByType(key);

@@ -1,10 +1,13 @@
-
 type SideBarItem = {
     label: string,
     key: string,
-    icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>
+    icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>,
+    conversations?: Conversation[],
+    onLoadConversation?: (conversationId: string) => void,
+    onDeleteConversation?: (conversationId: string) => void,
+    onClearConversation?: () => void,
+    currentConversationId?: string
 }
-
 type Conversation = {
     id: string
     title: string
@@ -12,13 +15,15 @@ type Conversation = {
 }
 
 type Message = {
-    content: string;
+    content?: string;
     files?: File[];
-    isUser: boolean;
+    isUser?: boolean;
     isError?: boolean;
-    timestamp: number;
+    timestamp?: number;
     id: string;
     end?: boolean;
+    loading?: boolean;
+    historySeperator?: boolean; // 历史消息分割线
 }
 
 type VideoDataType = {
